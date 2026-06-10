@@ -1,6 +1,9 @@
 # MED-VAE: cross-subject fMRI latent alignment
 
-Code accompanying the paper. MED-VAE learns a shared latent space across subjects
+Code accompanying the paper Task-guided cross-subject latent alignment:
+a multi-encoder-decoder VAE, Angeliki Papathanasiou, Jascha Achterberg, Thomas E. Nichols, Rui Ponte Costa. 
+
+MED-VAE learns a shared latent space across subjects
 from fMRI by jointly training per-subject encoders/decoders and a shared image
 (ANN) encoder. This repository reproduces the cross-subject **alignment**,
 **category-encoding**, and **reconstruction** results for MED-VAE and the two
