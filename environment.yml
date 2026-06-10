@@ -1,0 +1,24 @@
+name: medvae
+# Conda environment for MED-VAE (training + baselines + evaluation + figures).
+# The numpy<2.3 pin is REQUIRED: numba (used by umap-learn for the silhouette metric)
+# needs numpy <= 2.2; a newer numpy silently breaks UMAP. Verified working versions:
+# numpy 2.2, numba 0.61, umap-learn 0.5.7, scikit-learn 1.6, torch 2.x.
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - torch
+      - torchvision
+      - "numpy<2.3"
+      - scipy
+      - scikit-learn
+      - pandas
+      - matplotlib
+      - seaborn
+      - umap-learn
+      - tqdm
+      - h5py
+      - nibabel
+      - psutil

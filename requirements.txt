@@ -1,0 +1,17 @@
+# Core dependencies for MED-VAE training, baselines, and evaluation.
+# Versions are unpinned here; the exact versions used for the paper are those of
+# the BMRC conda env `ns`. See environment.yml / requirements.txt for pinned versions.
+# versions from the verification run.
+torch
+torchvision
+numpy<2.3          # numba (used by umap-learn) requires NumPy <= 2.2
+scipy
+scikit-learn
+pandas
+matplotlib
+seaborn
+umap-learn
+tqdm
+h5py
+nibabel
+psutil
