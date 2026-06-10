@@ -26,15 +26,16 @@ METHOD="${METHOD:-procrustes}"               # srm | procrustes | cca | gcca | a
 N_COMPONENTS="${N_COMPONENTS:-32}"
 N_PCA="${N_PCA:-${N_COMPONENTS}}"
 FILENAME="${FILENAME:-aligned_all_activations_fair_resnet50_hendrycks.npy}"
-SAVE_NAME="${SAVE_NAME:-${METHOD}_results_streams_${N_COMPONENTS}.npz}"
 MODEL_DIR="${MODEL_DIR:-${REPO_ROOT}/baselines/fitted_models}"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/baselines/ccn_results_evaluation}"
 
+# Fits the STANDARD model (builds the shared PCA basis). The paper baselines are
+# the random-init refits — run baselines/fit_srm.py + fit_proca.py afterwards,
+# which reuse the PCA from these standard models (see README section 3).
 cd "${REPO_ROOT}/baselines"
 python3 -u fit_baselines.py \
     --dataset streams --method "${METHOD}" \
     --filename "${FILENAME}" \
-    --n_pca "${N_PCA}" --n_umap 0 --n_components "${N_COMPONENTS}" \
-    --save_name "${SAVE_NAME}" \
+    --n_pca "${N_PCA}" --n_components "${N_COMPONENTS}" \
     --model_dir "${MODEL_DIR}" \
     --output_dir "${OUTPUT_DIR}"

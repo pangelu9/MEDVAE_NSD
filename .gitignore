@@ -18,3 +18,6 @@ logs/
 results_*/
 *_validate*/
 *_sanity*/
+# Aux metric dumps written by the fit/eval helpers (not figure inputs)
+baselines/results/
+baselines/ccn_results_evaluation/

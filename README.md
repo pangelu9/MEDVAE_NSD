@@ -62,9 +62,10 @@ Every fit is deterministic (seed 42).
 
 ```bash
 cd baselines
+ANN=aligned_all_activations_fair_resnet50_hendrycks.npy   # ANN features file (under $CCN_DATA_ROOT/nsd/data/)
 # (a) standard models — build the PCA bases on the 872 all-subject-shared images
-python fit_baselines.py --method srm          --n_pca 5000 --n_components 32 --model_dir fitted_models
-python fit_baselines.py --method procrustes_a --n_pca 32   --n_components 32 --model_dir fitted_models
+python fit_baselines.py --method srm          --filename $ANN --n_pca 5000 --n_components 32 --model_dir fitted_models
+python fit_baselines.py --method procrustes_a --filename $ANN --n_pca 32   --n_components 32 --model_dir fitted_models
 # (b) random-init refits — reuse the PCA from the standard models (the paper baselines)
 N_PCA=0 python fit_srm.py     # -> fitted_models/srm_rndinit_shared872_32d_model.pkl
 python fit_proca.py           # -> fitted_models/procrustes_a_rndinit_shared872_32d_model.pkl
@@ -91,6 +92,11 @@ Each pkl holds the alignment (component correlation, RSA), reconstruction
 cross-subject `fmri_prediction_matrix`.
 
 ## 5. Make the figure (Panels A–C)
+
+Regenerating the panels from scratch needs the trained MED-VAE checkpoint (§2),
+the fitted baseline models (§3), and the eval outputs (§4). To just reproduce the
+**published** figure without re-running anything, skip to the note at the end of
+this section — the required outputs are bundled.
 
 ```bash
 # Panel A — UMAP of the shared latents, one run per method

@@ -28,7 +28,9 @@ METHOD="${METHOD:-vae}"
 N_DIMS="${N_DIMS:-32}"
 MODE="${MODE:-not_all8}"               # 128 held-out images used in the paper's main figure
 SUBJECTS="${SUBJECTS:-1 2 5 7}"
-OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/evaluation/results}"
+# Eval outputs go where the figure scripts read them: CCN_RESULTS_DIR if set
+# (matches stat_tests.py / render_figure.py), else the bundled evaluation/results.
+OUTPUT_DIR="${OUTPUT_DIR:-${CCN_RESULTS_DIR:-${REPO_ROOT}/evaluation/results}}"
 
 cd "${REPO_ROOT}/evaluation"
 ARGS=(--method "${METHOD}" --dataset streams --n_dims "${N_DIMS}"

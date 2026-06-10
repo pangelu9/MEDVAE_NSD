@@ -29,7 +29,9 @@ EVALUATION_DIR = os.path.join(REPO_ROOT, "evaluation")
 # Data location (NOT part of this repo)
 # --------------------------------------------------------------------------
 # Directory containing the original data trees: nsd/ and nsd_classification/.
-DATA_ROOT = os.environ.get("CCN_DATA_ROOT", "/well/costa/users/odx145/code_may")
+# Set CCN_DATA_ROOT (see module docstring); the placeholder default fails loudly
+# with a clear path if it is left unset.
+DATA_ROOT = os.environ.get("CCN_DATA_ROOT", "/path/to/data")
 
 NSD_DIR = os.path.join(DATA_ROOT, "nsd")                 # contains data/, labels, ...
 NSD_DATA_DIR = os.path.join(NSD_DIR, "data")             # fMRI npz + ANN activations

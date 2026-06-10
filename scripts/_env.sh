@@ -4,7 +4,7 @@
 # root for your site.
 set -euo pipefail
 
-CONDA_ROOT="${CONDA_ROOT:-/well/costa/users/odx145/miniconda3}"
+CONDA_ROOT="${CONDA_ROOT:-/path/to/miniconda3}"   # <-- edit for your site (or export CONDA_ROOT)
 CONDA_ENV="${CONDA_ENV:-medvae}"   # the env created from environment.yml (needs working UMAP)
 
 module purge || true
@@ -15,7 +15,7 @@ conda activate "${CONDA_ENV}"
 
 # Where the data (nsd/, nsd_classification/) lives. Override by exporting
 # CCN_DATA_ROOT before sbatch, or edit the default here.
-export CCN_DATA_ROOT="${CCN_DATA_ROOT:-/well/costa/users/odx145/code_may}"
+export CCN_DATA_ROOT="${CCN_DATA_ROOT:-/path/to/data}"
 
 # Repo root = parent of this scripts/ dir (honor a pre-set REPO_ROOT, since under
 # sbatch BASH_SOURCE points at the spool copy, not scripts/).

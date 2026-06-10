@@ -1483,14 +1483,15 @@ def main():
 
         method_tag = f"{args.method}_{args.n_dims}d_{args.mode}_{args.dataset}"
         decoding_results = test_multilabel_decoding_balanced(
-            latent_space_list, test_labels, method_name=method_tag
+            latent_space_list, test_labels, method_name=method_tag,
+            output_dir=os.path.join(args.output_dir, "other"),  # keep aux dumps under --output_dir, not CWD
         )
 
         print("\n" + "="*60)
         print("SILHOUETTE SCORES")
         print("="*60)
         # Always dump the per-subject latents + labels behind the silhouette, so the
-        # combined-silhouette bootstrap (visualisation/figure2_stats.py) is fully
+        # combined-silhouette bootstrap (visualisation/stat_tests.py) is fully
         # reproducible from the released eval outputs. Set DUMP_SILH_LATENTS to override
         # the destination; otherwise it lands next to the results pkl.
         import pickle as _pk
