@@ -4,9 +4,9 @@
 # root for your site.
 set -euo pipefail
 
-# Local, uncommitted site overrides (gitignored): CONDA_ROOT, CCN_DATA_ROOT,
-# CCN_ANN_FEATURES, etc. Keeps machine-specific values out of git. Copy
-# scripts/_env.local.example.sh -> scripts/_env.local.sh and edit.
+# Local, uncommitted site overrides (gitignored): create scripts/_env.local.sh
+# exporting CONDA_ROOT, CCN_DATA_ROOT, CCN_ANN_FEATURES, etc. to keep
+# machine-specific values out of git. Sourced here if present.
 _LOCAL_ENV="$(dirname "${BASH_SOURCE[0]}")/_env.local.sh"
 if [ -f "${_LOCAL_ENV}" ]; then source "${_LOCAL_ENV}"; fi
 
