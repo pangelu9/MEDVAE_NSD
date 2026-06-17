@@ -41,11 +41,6 @@ export CCN_RESULTS_DIR=/path/to/results   # where checkpoints + eval outputs are
 All paths derive from these two variables (see `ccn_config.py`); the cluster
 wrappers in `scripts/` also read `CONDA_ROOT`/`CONDA_ENV` (edit `scripts/_env.sh`).
 
-> **Environment note.** The pipeline needs a working UMAP for the silhouette metric,
-> which requires `numpy <= 2.2` with a compatible `numba`/`umap-learn`
-> (e.g. numpy 2.2, numba 0.61, umap-learn 0.5.7). `environment.yml` pins these — a
-> too-new numpy (≥ 2.4) breaks numba/UMAP and the silhouette silently falls back to PCA.
-
 ## 2. Train MED-VAE
 
 ```bash
