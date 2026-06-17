@@ -8,7 +8,7 @@ import sys as _sys
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in _sys.path:
     _sys.path.insert(0, _REPO_ROOT)
-from ccn_config import NSD_DIR, NSD_DATA_DIR, NSD_CLASSIFICATION_DIR
+from ccn_config import NSD_DIR, NSD_DATA_DIR, NSD_CLASSIFICATION_DIR, LABELS_FILE, LABELS_ALL_FILE, LABELS_ORIGINAL_FILE, LABELS_MINDEYE_CLIP_FILE, LABELS_PER_SUBJECT_TEMPLATE, ANN_FEATURES_FILE, ACTIVATIONS_ALL_FILE, ACTIVATIONS_ORIGINAL_FILE
 
 
 
@@ -69,12 +69,12 @@ def load_activations(args, train_loader_non_shuffled=False, filename=None):
 
     if filename == None:
         if args.framework=="multidecoder":
-            filename = "activations_all.npy"
+            filename = ACTIVATIONS_ALL_FILE
         elif args.all_subjects:
-            filename = args.filename
+            filename = args.filename or ANN_FEATURES_FILE
 
     if train_loader_non_shuffled:
-        filename = "activations_original_aligned.npy"
+        filename = ACTIVATIONS_ORIGINAL_FILE
 
     # If absolute path, use directly; otherwise prepend default data dir
     if os.path.isabs(filename):
@@ -102,7 +102,7 @@ def load_and_concat_labels():
     # Load all label arrays
     for i in range(1, 9):
         subj = f"{i:02d}"
-        file_path = Path(os.path.join(NSD_CLASSIFICATION_DIR, f"inference_results_subject_{subj}_all/labels_resnet50.npy"))
+        file_path = Path(os.path.join(NSD_CLASSIFICATION_DIR, LABELS_PER_SUBJECT_TEMPLATE.format(sid=subj)))
         
         try:
             labels = np.load(file_path)
@@ -141,18 +141,18 @@ def load_labels(args, train_loader_non_shuffled=False, filename=None):
             return labels
         
         elif args.framework=="multidecoder":
-            filename = "labels_all.npy"  
+            filename = LABELS_ALL_FILE
         elif args.all_subjects:
             if args.dataset == "mindeye":
-                filename = "data/final_datasets_mindeye2/averaged_CLIP/labels_all.npy"
+                filename = LABELS_MINDEYE_CLIP_FILE
             else:
-                filename = "labels_all_aligned.npy"
+                filename = LABELS_FILE
             
         else:
-            filename = "labels_original_aligned.npy"
+            filename = LABELS_ORIGINAL_FILE
         
         if train_loader_non_shuffled:
-            filename = "labels_original_aligned.npy"
+            filename = LABELS_ORIGINAL_FILE
 
     dir = os.path.join(NSD_DIR, filename)
     print("loading data from", dir)

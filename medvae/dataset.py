@@ -12,7 +12,7 @@ import sys as _sys
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in _sys.path:
     _sys.path.insert(0, _REPO_ROOT)
-from ccn_config import NSD_DATA_DIR
+from ccn_config import NSD_DATA_DIR, FMRI_FILE_TEMPLATE, FMRI_MINDEYE_TEMPLATE
 
 
 
@@ -569,9 +569,9 @@ def load_brain_activations_multiencoder(
         
         # Construct filename
         if args.dataset == "streams":
-            filename = f"{subject_prefix}{subject_id}_streams_overl_NEW.npz" 
+            filename = FMRI_FILE_TEMPLATE.format(sid=subject_id)
         elif args.dataset == "mindeye":
-            filename = f"final_datasets_mindeye2/averaged/{subject_prefix}{subject_id}_averaged.npz" 
+            filename = FMRI_MINDEYE_TEMPLATE.format(sid=subject_id)
         else:
             filename = f"{subject_prefix}{subject_id}_aligned_ALGO.npz"
         filepath = os.path.join(data_dir, filename)

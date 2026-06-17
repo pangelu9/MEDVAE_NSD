@@ -24,9 +24,17 @@ medvae_release/
 ## Data
 
 The pipeline expects, under `$CCN_DATA_ROOT/nsd/`:
-- per-subject fMRI:        `data/fmri_subject{01..08}_streams_overl_NEW.npz`
-- ANN (ResNet-50) features: `data/aligned_all_activations_fair_resnet50_hendrycks.npy`
-- multi-label labels:       `labels_all_aligned.npy`
+- per-subject fMRI:        `data/fmri_subject{01..08}.npz`
+- ANN (ResNet-50) features: `data/ann_features.npy`
+- multi-label labels:       `data/category_labels.npy`
+
+These are the **generic names** the code uses by default (defined in `ccn_config.py`).
+If your files are named differently, don't edit the tracked code — instead map the
+generic names to your real filenames in an untracked override:
+- for Python: copy `ccn_config_local.example.py` → `ccn_config_local.py` and edit;
+- for the SLURM wrappers: copy `scripts/_env.local.example.sh` → `scripts/_env.local.sh`.
+
+Both are gitignored, so your local filenames never enter version control.
 
 > **TODO (to be added):** instructions for generating the ANN activations and the
 > fMRI data from the source NSD dataset.
@@ -58,10 +66,10 @@ Every fit is deterministic (seed 42).
 
 ```bash
 cd baselines
-ANN=aligned_all_activations_fair_resnet50_hendrycks.npy   # ANN features file (under $CCN_DATA_ROOT/nsd/data/)
-# (a) standard models — build the PCA bases on the 872 all-subject-shared images
-python fit_baselines.py --method srm          --filename $ANN --n_pca 5000 --n_components 32 --model_dir fitted_models
-python fit_baselines.py --method procrustes_a --filename $ANN --n_pca 32   --n_components 32 --model_dir fitted_models
+# (a) standard models — build the PCA bases on the 872 all-subject-shared images.
+# The ANN features file defaults to ccn_config.ANN_FEATURES_FILE; pass --filename to override.
+python fit_baselines.py --method srm          --n_pca 5000 --n_components 32 --model_dir fitted_models
+python fit_baselines.py --method procrustes_a --n_pca 32   --n_components 32 --model_dir fitted_models
 # (b) random-init refits — reuse the PCA from the standard models (the paper baselines)
 N_PCA=0 python fit_srm.py     # -> fitted_models/srm_rndinit_shared872_32d_model.pkl
 python fit_proca.py           # -> fitted_models/procrustes_a_rndinit_shared872_32d_model.pkl

@@ -35,7 +35,10 @@ if _REPO_ROOT not in sys.path:
 import ccn_config
 from ccn_config import (MEDVAE_DIR, EVALUATION_DIR, NSD_DIR,
                         NOISE_CEILING_DIR, CROSS_TRIAL_DATA_DIR, RESULTS_DIR,
-                        LABELS_PATH, ANN_ACTIVATIONS)
+                        LABELS_PATH, ANN_ACTIVATIONS,
+                        FMRI_FILE_TEMPLATE, FMRI_TRIAL_FILE_TEMPLATE,
+                        NOISE_CEILING_TEMPLATE, VAE_CHECKPOINT_TEMPLATE,
+                        ANN_SUBPATH_MINDEYE)
 for _p in (EVALUATION_DIR, MEDVAE_DIR):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -254,7 +257,7 @@ def load_noise_ceilings(subjects, nc_data_dir=NC_DATA_DIR):
     for subj in subjects:
         subj_str = f"{subj:02d}"
         nc_path = os.path.join(nc_data_dir, f"subj{subj_str}", "ncsnr_processed",
-                               f"subj{subj_str}_noiseceiling_NC.npy")
+                               NOISE_CEILING_TEMPLATE.format(sid=subj_str))
         if not os.path.exists(nc_path):
             print(f"  Warning: NC file not found for subject {subj}: {nc_path}")
             return None
@@ -274,7 +277,7 @@ def get_common_valid_test_indices_streams(data_path, subjects, test_size=0.1):
     valid_masks = []
     for subj in subjects:
         subj_str = f"{subj:02d}"
-        npz_path = os.path.join(data_path, "data", f"fmri_subject{subj_str}_streams_overl_NEW.npz")
+        npz_path = os.path.join(data_path, "data", FMRI_FILE_TEMPLATE.format(sid=subj_str))
         fmri_data = np.load(npz_path)['fmri_data']
         valid_masks.append(~np.isnan(fmri_data).any(axis=1))
 
@@ -295,7 +298,7 @@ def load_subject_test_data_streams(data_path, subj, test_size=0.1, common_test_i
     from sklearn.model_selection import train_test_split
 
     subj_str = f"{subj:02d}"
-    npz_path = os.path.join(data_path, "data", f"fmri_subject{subj_str}_streams_overl_NEW.npz")
+    npz_path = os.path.join(data_path, "data", FMRI_FILE_TEMPLATE.format(sid=subj_str))
     if not os.path.exists(npz_path):
         raise FileNotFoundError(f"Streams data not found at {npz_path}")
 
@@ -442,12 +445,12 @@ def load_vae_test_split(data_path, subjects, remove_all_overlaps=False, filter_n
 
     brain_data_list = []
     for subj_str in subject_ids:
-        fpath = os.path.join(data_path, "data", f"fmri_subject{subj_str}_streams_overl_NEW.npz")
+        fpath = os.path.join(data_path, "data", FMRI_FILE_TEMPLATE.format(sid=subj_str))
         fmri = np.load(fpath, mmap_mode='r')['fmri_data']
         brain_data_list.append(fmri)
         print(f"  Loaded subject {subj_str}: {fmri.shape}")
 
-    nn_path = os.path.join(data_path, "data", "final_datasets_mindeye2", "averaged", "activations_all.npy")
+    nn_path = os.path.join(data_path, "data", ANN_SUBPATH_MINDEYE)
     nn_activations = np.load(nn_path, mmap_mode='r')
     n_samples_orig = nn_activations.shape[0]
 
@@ -507,7 +510,7 @@ def load_cross_trial_data_streams(hero_subjects, mode='not_all8',
     subject_data = {}
 
     for subj in all_subjects:
-        fpath = os.path.join(cross_trial_dir, f"fmri_subject{subj:02d}_trials_preprocessed.npz")
+        fpath = os.path.join(cross_trial_dir, FMRI_TRIAL_FILE_TEMPLATE.format(sid=f"{subj:02d}"))
         if not os.path.exists(fpath):
             print(f"  Warning: {fpath} not found")
             continue
@@ -1273,7 +1276,7 @@ def get_args():
     if args.method == 'vae' and args.vae_checkpoint is None:
         args.vae_checkpoint = os.path.join(
             RESULTS_DIR,
-            f"medvae_fmri_nn2nn_fmri_resnet50_hendrycks_fair_nnweight5_{args.n_dims}_b1.0.pt")
+            VAE_CHECKPOINT_TEMPLATE.format(n_dims=args.n_dims))
 
     # Baseline model path (SRM/Procrustes) must be supplied explicitly — point to the
     # fitted alignment model .pkl produced by baselines/fit_baselines.py (or fit_*_random.py).

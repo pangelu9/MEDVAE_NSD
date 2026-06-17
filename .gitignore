@@ -14,6 +14,11 @@ __pycache__/
 logs/
 .ipynb_checkpoints/
 
+# Local, uncommitted data-name overrides (maps generic names -> real files).
+# Keep ccn_config_local.example.py tracked; never commit the real one.
+ccn_config_local.py
+scripts/_env.local.sh
+
 # Scratch / extra result dirs
 results_*/
 *_validate*/

@@ -25,7 +25,7 @@ source "${REPO_ROOT}/scripts/_env.sh"
 METHOD="${METHOD:-procrustes}"               # srm | procrustes | cca | gcca | all
 N_COMPONENTS="${N_COMPONENTS:-32}"
 N_PCA="${N_PCA:-${N_COMPONENTS}}"
-FILENAME="${FILENAME:-aligned_all_activations_fair_resnet50_hendrycks.npy}"
+FILENAME="${FILENAME:-${CCN_ANN_FEATURES:-ann_features.npy}}"   # set CCN_ANN_FEATURES (scripts/_env.local.sh) to your real file
 MODEL_DIR="${MODEL_DIR:-${REPO_ROOT}/baselines/fitted_models}"
 OUTPUT_DIR="${OUTPUT_DIR:-${REPO_ROOT}/baselines/ccn_results_evaluation}"
 

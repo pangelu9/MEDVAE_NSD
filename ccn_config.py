@@ -42,59 +42,101 @@ MINDEYE_DATA_DIR = os.path.join(NSD_CLASSIFICATION_DIR, "data_mindeye2")
 # Per-subject NSD noise-ceiling (ncsnr) data, used by the reconstruction eval.
 NOISE_CEILING_DIR = NSD_CLASSIFICATION_DATA_DIR
 
-# Preprocessed trial-separated data for the cross-trial reconstruction analysis
-# (Fig 2C cross-trial). This ~8 GB tree was produced by the trial-conversion
-# step and ships alongside the original data, not inside this repo.
-CROSS_TRIAL_DATA_DIR = os.path.join(
-    DATA_ROOT, "vae", "cross_trial_data_shared1000",
-    "trial_separated_shared1000_unified", "trial_separated_preprocessed")
-
 # Default location of trained MED-VAE checkpoints (.pt).
 RESULTS_DIR = os.environ.get("CCN_RESULTS_DIR", os.path.join(MEDVAE_DIR, "results"))
 
 # --------------------------------------------------------------------------
-# fMRI responses / image labels
+# Data file names (generic, public-facing defaults)
 # --------------------------------------------------------------------------
-# Per-subject fMRI npz files live in NSD_DATA_DIR as:
-#     fmri_subject{NN}_streams_overl_NEW.npz       (NN = 01..08)
-# Multi-hot COCO super-category labels (70502 x 12):
-LABELS_PATH = os.path.join(NSD_DATA_DIR, "labels_all_aligned.npy")
+# This repository ships NO data, so the names below are deliberately generic
+# placeholders. To run on your own data without committing its (possibly
+# idiosyncratic) filenames, either set the matching CCN_* environment variable,
+# or create ``ccn_config_local.py`` next to this file (it is gitignored) that
+# reassigns any of the names below. All full paths are assembled *after* that
+# local import, so a single override propagates everywhere. ``{sid}`` is the
+# zero-padded subject id (01..08); ``{n_dims}`` the latent dimensionality.
+#
+# A worked example mapping these to real files is in ccn_config_local.example.py.
+
+# fMRI responses (per-subject .npz in NSD_DATA_DIR)
+FMRI_FILE_TEMPLATE        = os.environ.get("CCN_FMRI_TEMPLATE",         "fmri_subject{sid}.npz")
+FMRI_TRIAL_FILE_TEMPLATE  = os.environ.get("CCN_FMRI_TRIAL_TEMPLATE",   "fmri_subject{sid}_trials.npz")
+FMRI_MINDEYE_TEMPLATE     = os.environ.get("CCN_FMRI_MINDEYE_TEMPLATE", os.path.join("mindeye", "fmri_subject{sid}.npz"))
+NOISE_CEILING_TEMPLATE    = os.environ.get("CCN_NOISE_CEILING_TEMPLATE", "subj{sid}_noiseceiling.npy")
+CROSS_TRIAL_SUBPATH       = os.environ.get("CCN_CROSS_TRIAL_SUBPATH",   os.path.join("vae", "cross_trial_data"))
+
+# Image labels
+LABELS_FILE               = os.environ.get("CCN_LABELS_FILE",           "category_labels.npy")
+LABELS_ALL_FILE           = os.environ.get("CCN_LABELS_ALL_FILE",       "labels_all.npy")
+LABELS_ORIGINAL_FILE      = os.environ.get("CCN_LABELS_ORIGINAL_FILE",  "labels_original.npy")
+LABELS_MINDEYE_FILE       = os.environ.get("CCN_LABELS_MINDEYE_FILE",   os.path.join("mindeye", "category_labels.npy"))
+LABELS_MINDEYE_CLIP_FILE  = os.environ.get("CCN_LABELS_MINDEYE_CLIP_FILE", os.path.join("mindeye_clip", "category_labels.npy"))
+LABELS_PER_SUBJECT_TEMPLATE = os.environ.get(
+    "CCN_LABELS_PER_SUBJECT_TEMPLATE", os.path.join("labels_subject_{sid}", "category_labels.npy"))
+
+# ANN activation scaffolds (one row per image presentation)
+ANN_FEATURES_FILE         = os.environ.get("CCN_ANN_FEATURES",          "ann_features.npy")
+ACTIVATIONS_ALL_FILE      = os.environ.get("CCN_ACTIVATIONS_ALL_FILE",  "activations_all.npy")
+ACTIVATIONS_ORIGINAL_FILE = os.environ.get("CCN_ACTIVATIONS_ORIGINAL_FILE", "activations_original.npy")
+
+# Alternative ANN scaffolds (experiments outside the documented release path).
+# Each value is a path relative to its base dir; generic placeholders here.
+ANN_INFER_SUBDIR          = os.environ.get("CCN_ANN_INFER_SUBDIR",      "ann_inference_results")
+ANN_SUBPATH_MINDEYE       = os.environ.get("CCN_ANN_MINDEYE",      os.path.join("mindeye", "ann_features.npy"))
+ANN_SUBPATH_UNT_51060     = os.environ.get("CCN_ANN_UNT_51060",    os.path.join("untrained", "ann_features.npy"))
+ANN_SUBPATH_UNT_8000      = os.environ.get("CCN_ANN_UNT_8000",     "ann_features_untrained.npy")
+ANN_SUBPATH_RAND_8000     = os.environ.get("CCN_ANN_RAND_8000",    os.path.join("random", "ann_features.npy"))
+ANN_SUBPATH_AVGPOOL       = os.environ.get("CCN_ANN_AVGPOOL",      "ann_features_avgpool2048.npy")
+ANN_SUBPATH_CLIP_VITL14   = os.environ.get("CCN_ANN_CLIP_VITL14",  os.path.join("clip_vitl14", "ann_features.npy"))
+ANN_SUBPATH_DINO_RN50     = os.environ.get("CCN_ANN_DINO_RN50",    os.path.join("dino_rn50", "ann_features.npy"))
+ANN_SUBPATH_DINO_VITB16   = os.environ.get("CCN_ANN_DINO_VITB16",  os.path.join("dino_vitb16", "ann_features.npy"))
+ANN_SUBPATH_CLIP_RN50     = os.environ.get("CCN_ANN_CLIP_RN50",    os.path.join("clip_rn50", "ann_features.npy"))
+ANN_SUBPATH_MNIST_RN50    = os.environ.get("CCN_ANN_MNIST_RN50",   "mnist_features_rn50_2048.npy")
+ANN_SUBPATH_MNIST_784     = os.environ.get("CCN_ANN_MNIST_784",    "mnist_features_784.npy")
+
+# Fallback trained-checkpoint filename (used by the evaluator when --vae_checkpoint
+# is omitted).
+VAE_CHECKPOINT_TEMPLATE   = os.environ.get("CCN_VAE_CHECKPOINT_TEMPLATE", "medvae_{n_dims}d.pt")
 
 # --------------------------------------------------------------------------
-# ANN activation scaffolds (one row per image presentation)
+# Local, uncommitted overrides (gitignored): map the generic names above to your
+# real data filenames. Copy ccn_config_local.example.py -> ccn_config_local.py.
 # --------------------------------------------------------------------------
+try:
+    from ccn_config_local import *  # noqa: F401,F403
+except ImportError:
+    pass
+
+# --------------------------------------------------------------------------
+# Assemble full paths from the (possibly-overridden) names above
+# --------------------------------------------------------------------------
+# Multi-hot COCO super-category labels (70502 x 12).
+LABELS_PATH = os.path.join(NSD_DATA_DIR, LABELS_FILE)
+
+# Preprocessed trial-separated data for the cross-trial reconstruction (Fig 2C).
+CROSS_TRIAL_DATA_DIR = os.path.join(DATA_ROOT, CROSS_TRIAL_SUBPATH)
+
 # Logical name -> absolute path. The eval scripts accept --ann_activations to
-# select one of these explicitly; if omitted they fall back to auto-detecting
-# from the checkpoint name (legacy behaviour, preserved verbatim).
+# select one explicitly; if omitted they fall back to checkpoint-name matching.
+_INFER_DIR = os.path.join(NSD_CLASSIFICATION_DIR, "code", ANN_INFER_SUBDIR)
 ANN_ACTIVATIONS = {
-    # Main paper scaffold: ImageNet-pretrained ResNet-50, 51060-d (streams ROIs)
-    "rn50_streams":         os.path.join(NSD_DATA_DIR, "aligned_all_activations_fair_resnet50_hendrycks.npy"),
-    # ResNet-50 used with MindEye2 ROIs (51048-d) — image-decoding setup
-    "rn50_mindeye":         os.path.join(NSD_DATA_DIR, "final_datasets_mindeye2", "averaged", "activations_all.npy"),
+    # Main paper scaffold: ImageNet-pretrained ResNet-50 (streams ROIs)
+    "rn50_streams":         os.path.join(NSD_DATA_DIR, ANN_FEATURES_FILE),
+    # ResNet-50 with MindEye2 ROIs — image-decoding setup
+    "rn50_mindeye":         os.path.join(NSD_DATA_DIR, ANN_SUBPATH_MINDEYE),
     # Untrained (random-init) ResNet-50 controls
-    "rn50_untrained_51060": os.path.join(NSD_DATA_DIR, "final_datasets_mindeye2_untrained_resnet", "activations_all.npy"),
-    "rn50_untrained_8000":  os.path.join(NSD_DATA_DIR, "aligned_all_activations_untrained_resnet50.npy"),
-    "rn50_random_8000":     os.path.join(NSD_CLASSIFICATION_DIR, "code",
-                                         "inference_results_subject_01_02_03_04_05_06_07_08_all_MULTI",
-                                         "resnet50_random_aligned", "activations_all.npy"),
+    "rn50_untrained_51060": os.path.join(NSD_DATA_DIR, ANN_SUBPATH_UNT_51060),
+    "rn50_untrained_8000":  os.path.join(NSD_DATA_DIR, ANN_SUBPATH_UNT_8000),
+    "rn50_random_8000":     os.path.join(_INFER_DIR, ANN_SUBPATH_RAND_8000),
     # avgpool-only RN50 (2048-d)
-    "rn50_avgpool_2048":    os.path.join(NSD_DATA_DIR, "aligned_rn50_sup_avgpool_2048.npy"),
-    # Kept so the eval auto-detect logic is unchanged (out of scope for the
-    # core release, but referenced by the string-matching fallback):
-    "clip_vitl14":          os.path.join(NSD_DATA_DIR, "final_datasets_mindeye2", "averaged_CLIP", "activations_CLIP_averaged.npy"),
-    "dino_rn50":            os.path.join(NSD_CLASSIFICATION_DIR, "code",
-                                         "inference_results_subject_01_02_03_04_05_06_07_08_all_MULTI",
-                                         "dino_rn50_aligned", "all_activations_dino_rn50_fair_Conv+ReLU_rate8_aligned.npy"),
-    "dino_vitb16":          os.path.join(NSD_CLASSIFICATION_DIR, "code",
-                                         "inference_results_subject_01_02_03_04_05_06_07_08_all_MULTI",
-                                         "dino_vitb16_aligned", "all_activations_dino_vitb16_subset.npy"),
-    "clip_rn50":            os.path.join(NSD_CLASSIFICATION_DIR, "code",
-                                         "inference_results_subject_01_02_03_04_05_06_07_08_all_MULTI",
-                                         "clip_rn50_aligned", "activations_all.npy"),
-    # MNIST sanity-check scaffolds (out of scope for the core release; kept so
-    # the eval auto-detect logic is byte-identical to the original):
-    "mnist_rn50_2048":      os.path.join(DATA_ROOT, "ccn_final", "MNIST_experiment", "mimic_mnist_rn50_2048.npy"),
-    "mnist_784":            os.path.join(DATA_ROOT, "ccn_final", "MNIST_experiment", "mimic_mnist_activations.npy"),
+    "rn50_avgpool_2048":    os.path.join(NSD_DATA_DIR, ANN_SUBPATH_AVGPOOL),
+    # Out of scope for the core release; kept for the eval auto-detect fallback.
+    "clip_vitl14":          os.path.join(NSD_DATA_DIR, ANN_SUBPATH_CLIP_VITL14),
+    "dino_rn50":            os.path.join(_INFER_DIR, ANN_SUBPATH_DINO_RN50),
+    "dino_vitb16":          os.path.join(_INFER_DIR, ANN_SUBPATH_DINO_VITB16),
+    "clip_rn50":            os.path.join(_INFER_DIR, ANN_SUBPATH_CLIP_RN50),
+    "mnist_rn50_2048":      os.path.join(DATA_ROOT, "ccn_final", "MNIST_experiment", ANN_SUBPATH_MNIST_RN50),
+    "mnist_784":            os.path.join(DATA_ROOT, "ccn_final", "MNIST_experiment", ANN_SUBPATH_MNIST_784),
 }
 
 # MindAligner / MindEye2 decoder location. Only used by the (excluded from this

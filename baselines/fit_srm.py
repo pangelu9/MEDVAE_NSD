@@ -35,7 +35,7 @@ model_io = _ll("model_io")  # vendored copy -> folder is self-contained
 _REPO = os.path.dirname(_HERE)
 if _REPO not in sys.path:
     sys.path.insert(0, _REPO)
-from ccn_config import setup_paths, NSD_DIR  # noqa: E402
+from ccn_config import setup_paths, NSD_DIR, ANN_FEATURES_FILE  # noqa: E402
 setup_paths()
 _dp = _ll("data_processing")  # vendored copy -> folder is self-contained
 extract_full_subject_data = _dp.extract_full_subject_data
@@ -61,7 +61,7 @@ def main():
     from pipeline import load_data
     args = argparse.Namespace(
         dataset="streams", batch_size=64, test_size=0.1,
-        filename="aligned_all_activations_fair_resnet50_hendrycks.npy",
+        filename=ANN_FEATURES_FILE,
         output_dim=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733], nn_output_dim=51060,
         input_dim=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733, 51060],
         noise_level=0.0, max_memory_gb=150.0, remove_overlaps=False, remove_all_overlaps=False,

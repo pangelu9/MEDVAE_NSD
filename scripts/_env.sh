@@ -4,6 +4,12 @@
 # root for your site.
 set -euo pipefail
 
+# Local, uncommitted site overrides (gitignored): CONDA_ROOT, CCN_DATA_ROOT,
+# CCN_ANN_FEATURES, etc. Keeps machine-specific values out of git. Copy
+# scripts/_env.local.example.sh -> scripts/_env.local.sh and edit.
+_LOCAL_ENV="$(dirname "${BASH_SOURCE[0]}")/_env.local.sh"
+if [ -f "${_LOCAL_ENV}" ]; then source "${_LOCAL_ENV}"; fi
+
 CONDA_ROOT="${CONDA_ROOT:-/path/to/miniconda3}"   # <-- edit for your site (or export CONDA_ROOT)
 CONDA_ENV="${CONDA_ENV:-medvae}"   # the env created from environment.yml (needs working UMAP)
 

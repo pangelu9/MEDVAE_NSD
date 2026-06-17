@@ -36,7 +36,7 @@ Example (SLURM)
       -o logs/fit_%j.out -e logs/fit_%j.out --export=ALL,REPO_ROOT=/path/to/medvae_release \
       --wrap='source $REPO_ROOT/scripts/_env.sh; cd $REPO_ROOT/baselines; \
               python3 -u fit_baselines.py --method srm --n_pca 5000 --n_components 32 \
-                  --filename aligned_all_activations_fair_resnet50_hendrycks.npy \
+                  --filename ann_features.npy \
                   --model_dir fitted_models --output_dir results_improved'
 """
 
@@ -71,7 +71,7 @@ model_io = _load_local("model_io")  # vendored copy -> folder is self-contained
 _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
-from ccn_config import setup_paths, NSD_DIR  # noqa: E402
+from ccn_config import setup_paths, NSD_DIR, ANN_FEATURES_FILE  # noqa: E402
 setup_paths()
 
 _dp = _load_local("data_processing")  # vendored copy -> folder is self-contained
@@ -214,7 +214,8 @@ def main():
     p.add_argument('--dataset', type=str, default='streams')
     p.add_argument('--batch_size', type=int, default=64)
     p.add_argument('--test_size', type=float, default=0.1)
-    p.add_argument('--filename', type=str, required=True)
+    p.add_argument('--filename', type=str, default=ANN_FEATURES_FILE,
+                   help='ANN features file (defaults to ccn_config.ANN_FEATURES_FILE)')
     p.add_argument('--data_dir', type=str, default=NSD_DIR + os.sep)
     p.add_argument('--output_dim', type=int, nargs='+',
                    default=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733])

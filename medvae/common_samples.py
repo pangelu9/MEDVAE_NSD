@@ -12,7 +12,7 @@ import sys as _sys
 _REPO_ROOT = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
 if _REPO_ROOT not in _sys.path:
     _sys.path.insert(0, _REPO_ROOT)
-from ccn_config import NSD_DATA_DIR
+from ccn_config import NSD_DATA_DIR, FMRI_FILE_TEMPLATE, LABELS_FILE, FMRI_MINDEYE_TEMPLATE, LABELS_MINDEYE_FILE
 
 
 def find_common_samples(args):
@@ -22,12 +22,12 @@ def find_common_samples(args):
     import os
 
     if args.dataset == "streams":
-        file_paths = [os.path.join(data_dir,f"fmri_subject{subject_id}_streams_overl_NEW.npz") for subject_id in subject_ids]
-        filename_labels = "labels_all_aligned.npy"
+        file_paths = [os.path.join(data_dir,FMRI_FILE_TEMPLATE.format(sid=subject_id)) for subject_id in subject_ids]
+        filename_labels = LABELS_FILE
     elif args.dataset == "mindeye":
-        file_paths = [os.path.join(data_dir,f"final_datasets_mindeye2/averaged/fmri_subject{subject_id}_averaged.npz") for subject_id in subject_ids]
-        
-        filename_labels = "data/final_datasets_mindeye2/averaged/labels_all.npy"
+        file_paths = [os.path.join(data_dir,FMRI_MINDEYE_TEMPLATE.format(sid=subject_id)) for subject_id in subject_ids]
+
+        filename_labels = LABELS_MINDEYE_FILE
     method_name="vae_shared872"
 
     

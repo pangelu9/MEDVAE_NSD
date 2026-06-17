@@ -14,13 +14,15 @@
 # 51060-d, w=5, 32-d latent). Override via environment variables, e.g.:
 #
 #   sbatch scripts/train_medvae.sh                              # main model
-#   FILENAME=final_datasets_mindeye2_untrained_resnet/activations_all.npy \
+#   FILENAME=untrained/ann_features.npy \
 #     SAVE_NAME=8subj_RN50untrained_51060_streams_rvoverl_nnw5_annw5 \
 #     sbatch scripts/train_medvae.sh                            # untrained control
 #
 source "$(dirname "${BASH_SOURCE[0]}")/_env.sh"
 
-FILENAME="${FILENAME:-aligned_all_activations_fair_resnet50_hendrycks.npy}"
+# ANN features file. Generic default; set CCN_ANN_FEATURES (e.g. in the gitignored
+# scripts/_env.local.sh) to your real filename.
+FILENAME="${FILENAME:-${CCN_ANN_FEATURES:-ann_features.npy}}"
 NN_OUTPUT_DIM="${NN_OUTPUT_DIM:-51060}"
 SAVE_NAME="${SAVE_NAME:-ALLsubjects_RN50_streams_rvoverl_all_nnw5_annw5}"
 LATENT_DIM="${LATENT_DIM:-32}"
