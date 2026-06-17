@@ -29,7 +29,7 @@ The pipeline expects, under `$CCN_DATA_ROOT/nsd/`:
 - multi-label labels:       `labels_all_aligned.npy`
 
 > **TODO (to be added):** instructions for generating the ANN activations and the
-> fMRI (`streams`) data from the source NSD dataset.
+> fMRI data from the source NSD dataset.
 
 ## 1. Setup
 
