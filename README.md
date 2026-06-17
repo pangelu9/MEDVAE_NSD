@@ -1,13 +1,14 @@
 # MED-VAE: cross-subject fMRI latent alignment
 
-Code accompanying the paper Task-guided cross-subject latent alignment:
-a multi-encoder-decoder VAE, Angeliki Papathanasiou, Jascha Achterberg, Thomas E. Nichols, Rui Ponte Costa. 
+Code for the paper "Task-guided cross-subject latent alignment: a multi-encoder-decoder VAE", Angeliki Papathanasiou, Jascha Achterberg, Thomas E. Nichols, Rui Ponte Costa. In Proceedings of the 9th Conference on Cognitive Computational Neuroscience, New York, NY, USA, 2026.
+
+https://arxiv.org/abs/2606.15989
 
 MED-VAE learns a shared latent space across subjects
-from fMRI by jointly training per-subject encoders/decoders and a shared image
+from fMRI by jointly training per-subject encoders/decoders and a shared 
 (ANN) encoder. This repository reproduces the cross-subject **alignment**,
 **category-encoding**, and **reconstruction** results for MED-VAE and the two
-linear baselines (SRM, Procrustes), and renders the main figure (Panels A–C).
+linear baselines (SRM, Procrustes).
 
 ```
 medvae_release/
