@@ -31,7 +31,7 @@ The pipeline expects, under `$CCN_DATA_ROOT/nsd/`:
 These are the **generic names** the code uses by default (defined in `ccn_config.py`).
 If your files are named differently, don't edit the tracked code — instead map the
 generic names to your real filenames in an untracked override:
-- for Python: copy `ccn_config_local.example.py` → `ccn_config_local.py` and edit;
+- for Python: create `ccn_config_local.py` reassigning the names you need (the defaults are listed at the top of `ccn_config.py`);
 - for the SLURM wrappers: copy `scripts/_env.local.example.sh` → `scripts/_env.local.sh`.
 
 Both are gitignored, so your local filenames never enter version control.

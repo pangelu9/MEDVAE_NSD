@@ -55,8 +55,6 @@ RESULTS_DIR = os.environ.get("CCN_RESULTS_DIR", os.path.join(MEDVAE_DIR, "result
 # reassigns any of the names below. All full paths are assembled *after* that
 # local import, so a single override propagates everywhere. ``{sid}`` is the
 # zero-padded subject id (01..08); ``{n_dims}`` the latent dimensionality.
-#
-# A worked example mapping these to real files is in ccn_config_local.example.py.
 
 # fMRI responses (per-subject .npz in NSD_DATA_DIR)
 FMRI_FILE_TEMPLATE        = os.environ.get("CCN_FMRI_TEMPLATE",         "fmri_subject{sid}.npz")
@@ -100,7 +98,7 @@ VAE_CHECKPOINT_TEMPLATE   = os.environ.get("CCN_VAE_CHECKPOINT_TEMPLATE", "medva
 
 # --------------------------------------------------------------------------
 # Local, uncommitted overrides (gitignored): map the generic names above to your
-# real data filenames. Copy ccn_config_local.example.py -> ccn_config_local.py.
+# real data filenames. Create ccn_config_local.py reassigning any names above.
 # --------------------------------------------------------------------------
 try:
     from ccn_config_local import *  # noqa: F401,F403
