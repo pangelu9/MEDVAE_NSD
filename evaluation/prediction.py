@@ -9,10 +9,6 @@ with proper centering using training means.
 
 """
 
-import numpy as np
-import pickle
-import pathlib
-from typing import Dict, List, Optional
 
 
 
@@ -415,7 +411,6 @@ def evaluate_cross_subject_prediction(
     # Ensure training means have correct shape (n_voxels,) or (1, n_voxels)
     training_means = [m.reshape(1, -1) if m.ndim == 1 else m for m in training_means]
     print(f" Using provided training means for centering")
-    print(f"  Training means shape (subject 1): {training_means[0].shape}")
     
     for i in range(n_subjects):
         # CRITICAL: Center subject i's TEST data using TRAINING mean (in PCA space)
@@ -437,8 +432,6 @@ def evaluate_cross_subject_prediction(
                 # Transform prediction back to original voxel space
                 X_j_pred = pca_models[j].inverse_transform(X_j_pred_pca)
                 
-                if j == 0:  # Print once per source subject
-                    print(f"  S{i+1}→S{j+1}: PCA {X_j_pred_pca.shape} → Original {X_j_pred.shape}")
             else:
                 # Stay in PCA space
                 X_j_actual = original_data[j]

@@ -212,7 +212,7 @@ def load_data_multiencoder(args, kwargs, gradual_intro_enc=False):
             noise_level=noise_level,
             args=args,
             max_memory_gb=max_memory_gb, 
-            keep_percent=[100] * len(subject_ids)#args.keep_percent
+            keep_percent=[100] * len(subject_ids)
         )
     else:
         brain_data_list = []
@@ -357,7 +357,7 @@ def load_data_multiencoder(args, kwargs, gradual_intro_enc=False):
     print(f"Memory before split: {get_memory_usage():.2f} GB")
     
     # Get number of samples
-    n_samples = len(nn_activations) #= len(brain_data_list[0]) if brain_data_list else len(nn_activations)
+    n_samples = len(nn_activations)
     print(f"Total samples: {n_samples}")
     
     #  CRITICAL: Split indices instead of data to avoid copying
@@ -582,7 +582,6 @@ def load_brain_activations_multiencoder(
             
             with np.load(filepath) as npz_file:
                 fmri_raw = npz_file['fmri_data']
-                print(f"   Raw: {fmri_raw.shape}, {fmri_raw.dtype}")
                 if getattr(args, 'fmri_shuffle_voxels', False):
                     print("PERMUTING VOXELS")
                     rng = np.random.default_rng(seed=42)   # fixed seed → reproducible
@@ -608,10 +607,6 @@ def load_brain_activations_multiencoder(
             print(f"   Expected size: {expected_size_gb:.2f} GB")
             print(f"   Efficiency: {expected_size_gb/actual_increase:.2f}x (1.0 = perfect)")
             
-            # # =====  PER-SUBJECT SPARSITY (keep among VALID rows) =====
-            #     subject_data[:] = np.nan
-            #         f"(kept {n_keep}) for subject {subject_id}")
-            # ==========================================================
 
                 
             # Data processing

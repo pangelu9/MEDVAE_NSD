@@ -22,12 +22,9 @@ def find_common_samples(args):
     import os
 
     if args.dataset == "streams":
-        print(args.dataset)
         file_paths = [os.path.join(data_dir,f"fmri_subject{subject_id}_streams_overl_NEW.npz") for subject_id in subject_ids]
         filename_labels = "labels_all_aligned.npy"
     elif args.dataset == "mindeye":
-        print(args.dataset)
-        # file_paths = [os.path.join(data_dir,f"final_datasets_mindeye2/averaged/fmri_subject{subject_id}_averaged.npz") for subject_id in subject_ids]
         file_paths = [os.path.join(data_dir,f"final_datasets_mindeye2/averaged/fmri_subject{subject_id}_averaged.npz") for subject_id in subject_ids]
         
         filename_labels = "data/final_datasets_mindeye2/averaged/labels_all.npy"
@@ -42,8 +39,6 @@ def find_common_samples(args):
     labels = load_labels(args, filename=filename_labels)
 
     fmri_common, nn_common, labels_common, idx_common = extract_common_samples(fmri_data_list, nn_activations, labels)
-    # print("fmri_common shape", fmri_common.shape)
-    # print("nn_common shape", nn_common.shape)
 
     del fmri_data_list, nn_activations, labels
     gc.collect()

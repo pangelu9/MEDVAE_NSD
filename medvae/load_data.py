@@ -27,7 +27,6 @@ def load_fmri_data(file_paths, args=None):
     data_list : list of numpy arrays
         List containing fMRI data for each subject (samples × voxels)
     """
-    print(file_paths)
     data_list = []
     for file_path in file_paths:
         # Check file extension
@@ -75,10 +74,7 @@ def load_activations(args, train_loader_non_shuffled=False, filename=None):
             filename = args.filename
 
     if train_loader_non_shuffled:
-        print("train_loader_non_shufflsed")
         filename = "activations_original_aligned.npy"
-
-    #filename = "features_all.npy"
 
     # If absolute path, use directly; otherwise prepend default data dir
     if os.path.isabs(filename):
@@ -86,23 +82,8 @@ def load_activations(args, train_loader_non_shuffled=False, filename=None):
     else:
         dir = os.path.join(NSD_DATA_DIR, filename)
     print("loading data from", dir)
-
-    #data_act = np.load(dir + "activations_final_layers_{}_originall.npy".format(model))  # model 1
-    data_act = np.load(dir)#, allow_pickle=True)  # (1000,)
-    
-    # 
-    print("ACTIVATIONS shape", data_act.shape) 
-    # data_act = data_act[:,-7168:]
-    #activations = stack_dict(dict(data_act))
-    activations = data_act# torch.reshape(activations, (activations.shape[0], -1)).numpy()
-    print("ACTIVATIONS shape", activations.shape)    
-    #activations = (activations - activations.min()) / (activations.max() - activations.min())
-    activations = (activations - activations.mean(axis=0)) / (activations.std(axis=0) + 1e-8)
-    has_nan = np.isnan(activations).any()
-    
-    print("after", activations.shape)
-    #activations = activations[:, -512:]
-    
+    data_act = np.load(dir)
+    activations = (data_act - data_act.mean(axis=0)) / (data_act.std(axis=0) + 1e-8)
     has_nan = np.isnan(activations).any()
     print("Does the activations have NaNs?", has_nan)
     
@@ -136,21 +117,16 @@ def load_and_concat_labels():
     # Concatenate all label arrays
     concatenated_labels = np.concatenate(labels_arrays, axis=0)
     
-    #concatenated_labels = concatenated_labels[0:9841,:]
     print(f"\nFinal concatenated labels shape: {concatenated_labels.shape}")
     
     #Delete placeholder column
     label_counts = np.sum(concatenated_labels, axis=0)  # Count occurrences of each label
     min_label_index = np.argmin(label_counts)  # Find the index with the fewest occurrences
-
-
+    
     # Remove the column corresponding to the least frequent label
     filtered_data_labels = np.delete(concatenated_labels, min_label_index, axis=1)
     print(f"\nFinal concatenated labels shape: {filtered_data_labels.shape}")
 
-    #np.random.shuffle(filtered_data_labels)
-
-    
     return filtered_data_labels
 
 
@@ -170,22 +146,18 @@ def load_labels(args, train_loader_non_shuffled=False, filename=None):
             if args.dataset == "mindeye":
                 filename = "data/final_datasets_mindeye2/averaged_CLIP/labels_all.npy"
             else:
-                filename = "labels_all_aligned.npy"  #labels_all_overl_advers.npy labels_all_overl.npy labels_all_convnext 
-            # filename = "labels_resnet50_fair_noise_gaussian3.npy" 
-            # filename = "labels_all_aligned_categories.npy"
+                filename = "labels_all_aligned.npy"
             
         else:
-            filename = "labels_original_aligned.npy" #"labels_original_aligned.npy"
+            filename = "labels_original_aligned.npy"
         
         if train_loader_non_shuffled:
-            print("train_loader_non_shuffled")      
             filename = "labels_original_aligned.npy"
 
     dir = os.path.join(NSD_DIR, filename)
     print("loading data from", dir)
 
     labels = np.load(dir)  # model 1 
-    print("labels shape", labels.shape)
 
     return labels
 

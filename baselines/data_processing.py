@@ -118,12 +118,6 @@ def apply_dimensionality_reduction_robust(full_data_list, full_data_list_test, c
         full_data_reduced_test = pca.transform(full_data_test)
         print(f"  Subject {i+1}: Using PCA fitted on {full_data.shape[0]} samples..., transforming {full_data_reduced.shape[0]}")
 
-        # # AFTER you have fitted PCA on full_data
-        # # 1. FIT on **full** PCA space
-        # full_pca = pca.transform(full_data)          # ≈ 9 k × 200
-        # umap_reducer.fit(full_pca)
-
-        # # 2. TRANSFORM the common slice
         import os, umap
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['PYTHONHASHSEED']  = '42'
@@ -142,22 +136,6 @@ def apply_dimensionality_reduction_robust(full_data_list, full_data_list_test, c
         reduced_common_list.append(common_reduced)
         reduced_full_list.append(full_data_reduced)
         reduced_full_list_test.append(full_data_reduced_test)
-    
-    # APPLY ONE UMAP ON ALL DATA
-
-    # # 1. Stack all PCA embeddings (≈ 8 × 872 = 6976 rows)
-    # stacked_pca = np.vstack(reduced_common_list)  
-
-    # # 2. Fit **one** UMAP
-    # umap_reducer = umap.UMAP(n_components=50, random_state=42, n_neighbors=15, n_jobs=1)
-    # umap_reducer.fit(stacked_pca)                  # single RNG stream
-
-    # # 3. Transform each subject’s **common** PCA slice
-    # common_umap_list = [umap_reducer.transform(pca_slice) for pca_slice in reduced_common_list]
-
-    # # 4. Replace the list with UMAP-reduced data
-    # reduced_common_list = common_umap_list         # now 872 × 50 each
-        
     
     # ======== SAVE PCA-TRANSFORMED COMMON SAMPLES ========
     print("\n" + "="*70)

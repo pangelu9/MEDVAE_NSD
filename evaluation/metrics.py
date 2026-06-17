@@ -28,7 +28,6 @@ from scipy.stats import spearmanr, pearsonr
 from savemetrics import save_alignment_metrics
 
 os.environ['OMP_NUM_THREADS'] = '1'     # force single-thread
-os.environ['PYTHONHASHSEED'] = '42' 
 os.environ['PYTHONHASHSEED'] = '0'
 
 def test_multilabel_decoding_balanced(aligned_data, labels, method_name,

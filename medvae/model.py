@@ -144,7 +144,6 @@ class HybridMultiEncoderVAE(nn.Module):
         else:
             print("No fMRI decoders")
         
-        print("self.encoders len", len(self.encoders))
 
     def reparameterize(self, mu, logvar):
         """

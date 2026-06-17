@@ -37,7 +37,6 @@ def main():
         torch.cuda.manual_seed_all(args.seed)
     kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
-    print(">>> RUNNING main.py FROM:", os.path.abspath(__file__))
 
     # MEDVAE: ensure the results/checkpoint output directory exists
     os.makedirs(RESULTS_DIR, exist_ok=True)
@@ -63,10 +62,6 @@ def main():
         input_dims=args.input_dim
         output_dim=args.output_dim
 
-
-    print(input_dims, output_dim)
-    print(f"args.hybrid_vae = {args.hybrid_vae}")
-    print(f"args.only_fmri_encoders = {args.only_fmri_encoders}")
     model = create_vae_model(args, input_dims, output_dim)
     model.to(device)
 
@@ -113,7 +108,6 @@ def main():
     else:
         total_annealing_steps = 0
 
-
     train_losses = []
     test_losses = []
     train_align_losses = []
@@ -155,8 +149,6 @@ def main():
     # After all epochs have completed:
     # Prepare lists to hold the silhouette scores for each encoder
     silhouette_enc = [[] for _ in range(len(model.encoders))]
-
-
 
     # Create a dictionary to hold all loss data and metrics
     loss_data = {

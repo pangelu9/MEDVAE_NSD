@@ -128,9 +128,6 @@ def train_hybrid_vae(model, train_loader, device, optimizer, epoch, args, total_
             mu, logvar, all_masks, kl_beta, args
         )
 
-        # # CHECK THIS:
-            
-        #     # Check if it's all zeros
 
         # Get total losses
         nn_loss_fmri_pathway = 0  # fMRI encoder → NN decoder
@@ -208,10 +205,10 @@ def train_hybrid_vae(model, train_loader, device, optimizer, epoch, args, total_
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f} (NN: {:.6f}, fMRI: {:.6f}, KL: {:.6f}, Align: {:.6f})'.format(
                 epoch, total_samples, len(train_loader.dataset),
                 100. * batch_idx / len(train_loader),
-                loss.item(), # / batch_size,
-                nn_loss.item(), # / batch_size,
-                fmri_loss.item(), # / batch_size,
-                kl_loss.item(), # / batch_size, 
+                loss.item(),
+                nn_loss.item(),
+                fmri_loss.item(),
+                kl_loss.item(),
                 align_loss_val.item() if isinstance(align_loss_val, torch.Tensor) else 0.0))
             
             # Optionally print per-encoder metrics with proper normalization
@@ -244,11 +241,11 @@ def train_hybrid_vae(model, train_loader, device, optimizer, epoch, args, total_
         return 0.0, 0.0, 0.0, 0.0, 0.0, kl_beta
     
     # Perform proper normalization at the end using valid counts
-    KLD_loss_normalized = KLD_loss  / num_batches_processed #/ max(1, kl_valid_count)
-    nn_rec_loss_normalized = nn_rec_loss / num_batches_processed#/ max(1, nn_valid_count)
+    KLD_loss_normalized = KLD_loss  / num_batches_processed
+    nn_rec_loss_normalized = nn_rec_loss / num_batches_processed
     nn_rec_loss_fmri_pathway_norm = nn_rec_loss_fmri_pathway / num_batches_processed
     nn_rec_loss_ann_pathway_norm = nn_rec_loss_ann_pathway / num_batches_processed
-    fmri_rec_loss_normalized = fmri_rec_loss / num_batches_processed #/ max(1, fmri_valid_count)
+    fmri_rec_loss_normalized = fmri_rec_loss / num_batches_processed
     fmri_rec_loss_fmri_pathway_norm = fmri_rec_loss_fmri_pathway / num_batches_processed
     fmri_rec_loss_ann_pathway_norm = fmri_rec_loss_ann_pathway / num_batches_processed
 
@@ -357,7 +354,6 @@ def test_hybrid_vae(model, test_loader, device, epoch, args, kl_beta, disabled_e
                     mu_all, logvar_all, all_masks, kl_beta, args
                 )
                 
-                # # Get loss values
                 # Get loss values but skip disabled encoders
                 kl_loss_all = 0
                 nn_loss_all = 0
@@ -493,12 +489,11 @@ def test_hybrid_vae(model, test_loader, device, epoch, args, kl_beta, disabled_e
     
     # Normalize losses by actual valid sample counts
     # For all encoders
-    KLD_loss_all = KLD_loss_all / num_batches_processed #/ max(1, kl_valid_count)
-    print("kl_valid_count", kl_valid_count)
-    nn_rec_loss_all = nn_rec_loss_all / num_batches_processed #/ max(1, nn_valid_count)
+    KLD_loss_all = KLD_loss_all / num_batches_processed
+    nn_rec_loss_all = nn_rec_loss_all / num_batches_processed
     nn_rec_loss_all_fmri_pathway = nn_rec_loss_all_fmri_pathway / num_batches_processed
     nn_rec_loss_all_ann_pathway = nn_rec_loss_all_ann_pathway / num_batches_processed
-    fmri_rec_loss_all = fmri_rec_loss_all / num_batches_processed #/ max(1, fmri_valid_count)
+    fmri_rec_loss_all = fmri_rec_loss_all / num_batches_processed
     fmri_rec_loss_all_fmri_pathway = fmri_rec_loss_all_fmri_pathway / num_batches_processed
     fmri_rec_loss_all_ann_pathway = fmri_rec_loss_all_ann_pathway / num_batches_processed
     ann_pw = args.ann_pathway_weight if args.ann_pathway_weight is not None else args.nn_weight
@@ -506,9 +501,9 @@ def test_hybrid_vae(model, test_loader, device, epoch, args, kl_beta, disabled_e
     test_loss_all = kl_beta * KLD_loss_all + args.nn_weight * nn_rec_loss_all_fmri_pathway + ann_pw * nn_rec_loss_all_ann_pathway + fmri_pw * fmri_rec_loss_all_fmri_pathway + args.fmri_weight * fmri_rec_loss_all_ann_pathway
 
     # For fMRI-only or current config (fMRI-only path has no ANN encoder, so nn_weight applies)
-    KLD_loss = KLD_loss / num_batches_processed#/ max(1, kl_valid_count_fmri_only)
-    nn_rec_loss = nn_rec_loss / num_batches_processed#/ max(1, nn_valid_count_fmri_only)
-    fmri_rec_loss = fmri_rec_loss / num_batches_processed#/ max(1, fmri_valid_count_fmri_only)
+    KLD_loss = KLD_loss / num_batches_processed
+    nn_rec_loss = nn_rec_loss / num_batches_processed
+    fmri_rec_loss = fmri_rec_loss / num_batches_processed
     # fMRI-only path: fmri_rec_loss is entirely fMRI→fMRI, so use fmri_pw
     test_loss = kl_beta * KLD_loss + args.nn_weight * nn_rec_loss + fmri_pw * fmri_rec_loss
     

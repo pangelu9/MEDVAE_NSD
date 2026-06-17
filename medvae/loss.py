@@ -14,8 +14,6 @@ def compute_separate_encoder_losses(model, nn_output, nn_target, fmri_outputs, f
     batch_size = masks.size(0)
     num_encoders = mu.size(2)
 
-    # print("MASKS SIZEEEE", masks.shape)
-    
     # Initialize loss accumulators
     total_kl_loss = torch.tensor(0.0, device=device)
     total_nn_loss = torch.tensor(0.0, device=device)
@@ -47,7 +45,6 @@ def compute_separate_encoder_losses(model, nn_output, nn_target, fmri_outputs, f
         valid_indices = torch.where(encoder_mask)[0]
         encoder_valid_count = len(valid_indices)
 
-        # print("encoder_valid_count", encoder_valid_count)
         
         encoder_valid_counts[f"encoder_{encoder_idx}"] = {
             "encoder": encoder_valid_count,
@@ -67,7 +64,6 @@ def compute_separate_encoder_losses(model, nn_output, nn_target, fmri_outputs, f
         
         logvar_clipped = torch.clamp(encoder_logvar, min=-20, max=20)
         kl_terms = 1 + logvar_clipped - encoder_mu.pow(2) - logvar_clipped.exp()
-        # kl_loss = -0.5 * torch.sum(kl_terms, dim=1).mean()  # normalise by valid samples
         
         kl_loss = -0.5 * torch.sum(kl_terms) / batch_size
 
@@ -131,8 +127,7 @@ def compute_separate_encoder_losses(model, nn_output, nn_target, fmri_outputs, f
                     subject_encoder_output = subject_output[common_indices, :, encoder_idx]
                     subject_input = fmri_inputs[subject_idx][common_indices]
                     
-                    subject_loss = F.mse_loss(subject_encoder_output, subject_input, reduction='sum') / batch_size # / len(common_indices) # normalise by valid samples
-                    # subject_loss = F.mse_loss(subject_encoder_output, subject_input, reduction='mean')
+                    subject_loss = F.mse_loss(subject_encoder_output, subject_input, reduction='sum') / batch_size
                     encoder_fmri_loss += subject_loss
             
             encoder_fmri_losses[f"encoder_{encoder_idx}"] = encoder_fmri_loss
