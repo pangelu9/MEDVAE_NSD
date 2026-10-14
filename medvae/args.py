@@ -89,8 +89,8 @@ def build_parser():
 
     parser.add_argument('--remove_all_overlaps', action='store_true',
                      help='Completely remove overlapping images from ALL subjects')
-    parser.add_argument('--filter_no_fmri', action='store_true', default=False,
-                        help='keep only NN samples that have fmri data')
+    parser.add_argument('--filter_no_fmri', action=argparse.BooleanOptionalAction, default=True,
+                        help='keep only samples that have fMRI data in at least one subject (default: on)')
     parser.add_argument('--exclude_mask', type=str, default=None,
                         help='Path to boolean .npy mask (True=exclude). Applied before train/test split.')
     parser.add_argument('--finetune', action='store_true', default=False,

@@ -315,7 +315,7 @@ def load_data_multiencoder(args, kwargs, gradual_intro_enc=False):
 
     # === FILTER SAMPLES WITH AT LEAST ONE FMRI RESPONSE ===
     print(f"\n=== FILTERING SAMPLES ===")
-    filter_enabled = getattr(args, 'filter_no_fmri', False)  # Default to True
+    filter_enabled = getattr(args, 'filter_no_fmri', False)  # CLI default is True; False only for configs saved without the key
     
     if brain_data_list and filter_enabled:
         # Check which samples have at least one valid (non-NaN) fMRI response
