@@ -538,8 +538,9 @@ def load_brain_activations_multiencoder(
         noise_level: Level of noise to add to the data
         args: Arguments object containing dataset configuration
         max_memory_gb: Maximum memory limit in GB
-        remove_overlaps: If True, removes overlapping stimuli between subjects,
-                        keeping only the first occurrence (from subject with lowest ID)
+        keep_percent: Unused here (overlap removal and --keep_percent are applied by the caller)
+
+    Raises RuntimeError if any requested subject could not be loaded.
     """
     from memory_utils import get_memory_usage
     import gc
@@ -555,6 +556,7 @@ def load_brain_activations_multiencoder(
     
     brain_data_list = []
     input_dims = []
+    loaded_ids = []
     
     for i, subject_id in enumerate(subject_ids):
         seed = int(subject_id) 
@@ -645,6 +647,7 @@ def load_brain_activations_multiencoder(
             # Store the data
             input_dims.append(subject_data.shape[1])
             brain_data_list.append(subject_data)
+            loaded_ids.append(subject_id)
             
             final_memory = get_memory_usage()
             total_increase = final_memory - current_memory
@@ -667,6 +670,13 @@ def load_brain_activations_multiencoder(
             gc.collect()
             continue
     
+    # Fail loudly if a subject was skipped above (missing/unreadable file, or memory limit hit)
+    if len(loaded_ids) < len(subject_ids):
+        raise RuntimeError(
+            f"Loaded fMRI for subjects {loaded_ids}, but {list(subject_ids)} were requested. "
+            f"Check the fMRI files in {data_dir} (see the messages above) or raise "
+            f"--max_memory_gb (currently {max_memory_gb} GB).")
+
     if not brain_data_list:
         raise ValueError("No brain data could be loaded!")
     

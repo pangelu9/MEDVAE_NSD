@@ -1,7 +1,7 @@
 """
 Clean, correct Shared Response Model (SRM) for cross-subject alignment.
 
-This is a rewrite of ``baselines/srm.py`` (``fit_detsrm``) for the MEDVAE paper
+This is a rewrite of an earlier ``fit_detsrm`` implementation for the MEDVAE paper
 baselines.  The *algorithm* (deterministic SRM, Chen et al. 2015) is unchanged in
 spirit, but the implementation is cleaned up and the contract is made explicit.
 
@@ -30,8 +30,8 @@ We also return the per-subject centering means so the caller can store them as
 ``training_means`` -- guaranteeing that fit-time and apply-time centering match
 (``apply_alignment`` below replays exactly the same transform on new data).
 
-FIXES vs the original ``baselines/srm.py``
-------------------------------------------
+FIXES vs the earlier implementation
+-----------------------------------
   * Removed the noisy "try 3 initialisations, pick the lowest error" block and the
     heavy DEBUG printing.  Init is now a single, documented, deterministic SVD
     (PCA scores of the cross-subject grand mean) -- the standard DetSRM warm start.
@@ -90,13 +90,14 @@ def fit_detsrm(data_list, n_components, n_iter=200, tol=1e-6,
     n_iter, tol : EM iteration budget and relative-objective stopping tolerance.
     init : 'grand_mean' (default) | 'random' | 'concat'.
         SRM's EM is non-convex, BUT a diagnostic sweep showed the init has NO effect on
-        the rotation-INVARIANT metrics: recon_error and RSA are identical for grand_mean
+        the rotation-INVARIANT metrics: recon_error and RSA are (nearly) identical for grand_mean
         vs random (vs no-PCA). The large spread in *component-wise correlation* across
         inits is purely a ROTATION ARTIFACT -- comp-corr is rotation-sensitive and SRM
         is identified only up to a global rotation of the shared space. So grand_mean
-        (deterministic, reproduces the paper to ~1e-5) is the default. best-of-N random
+        (deterministic) is the default; the paper's SRM is the seeded random-init refit
+        of baselines/fit_srm.py (same alignment, another orientation). best-of-N random
         (n_init>1, init='random') is available but UNNECESSARY for quality; use a
-        rotation-invariant metric (RSA / decoding / retrieval), not comp-corr, to
+        rotation-invariant metric (Euclidean RSA / decoding / retrieval), not comp-corr, to
         compare alignments.
     n_init : random restarts selected by recon_error (only meaningful for init='random';
         default 1, since the init does not change alignment quality).
@@ -182,8 +183,8 @@ def apply_alignment(data_list_new, W_list, training_means):
     """Apply a fitted SRM (or any orthonormal-W alignment) to new data.
 
     aligned_i = (X_new_i - training_means[i]) @ W_list[i].
-    Identical convention to ``baselines.alignment.apply_trained_alignment`` so the
-    existing evaluation/prediction code consumes it unchanged.
+    Identical convention to the evaluator (``AlignmentTransformer`` in
+    evaluation/evaluate_methods.py) and evaluation/prediction.py, which consume it unchanged.
     """
     out = []
     for i, X in enumerate(data_list_new):

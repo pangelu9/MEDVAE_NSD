@@ -1,5 +1,6 @@
-# Vendored verbatim from ../baselines_old/data_processing.py so baselines/ is
-# fully self-contained for the paper release (loaded locally by the fit_* drivers).
+# Sample extraction from the MED-VAE data loader for the fit_* drivers, which load this
+# file by path (baselines/ is self-contained). apply_dimensionality_reduction_robust is
+# not used by them (they use reduction.reduce_subjects).
 import numpy as np
 from tqdm import tqdm
 import os
@@ -142,12 +143,10 @@ def apply_dimensionality_reduction_robust(full_data_list, full_data_list_test, c
     print("SAVING PCA-TRANSFORMED COMMON SAMPLES")
     print("="*70)
 
-    # The original code relied on os.chdir(VAE_DIR) so these relative 'results/'
-    # paths landed in vae/results/. The chdir was removed in the refactor, so
-    # ensure the (cwd-relative) results/ dir exists to preserve the same writes.
+    # The results/ paths below are relative to the working directory; create it first.
     os.makedirs('results', exist_ok=True)
     # Use only the basename of save_name so an absolute --save_name does not get
-    # embedded into the relative results/ path (byte-identical for bare names).
+    # embedded into the relative results/ path (no change for bare names).
     _base = os.path.basename(args.save_name)
 
     # Save the PCA-reduced common samples

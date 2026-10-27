@@ -5,16 +5,19 @@ Produces a single consolidated pkl per method with all metrics (alignment,
 cross-subject fMRI prediction, reconstruction, retrieval, decoding, silhouette,
 cross-trial) consumed by the visualisation scripts.
 
-Usage:
-  # VAE
-  python evaluate_methods.py --method vae --vae_checkpoint path/to/model.pt \\
-      --n_dims 32 --mode not_all8
+Usage (the paper's settings; scripts/eval_medvae.sh wraps these calls):
+  # MED-VAE
+  python evaluate_methods.py --method vae --vae_checkpoint path/to/medvae.pt \\
+      --ann_activations rn50_streams \\
+      --n_dims 32 --subjects 1 2 5 7 --mode not_all8 --test_size 1.0 --output_dir <dir>
 
-  # SRM / Procrustes (pass the saved model pkl directly)
-  python evaluate_methods.py --method srm --alignment_model_path path/to/srm_model.pkl \\
-      --n_dims 32 --mode not_all8
-  python evaluate_methods.py --method procrustes --alignment_model_path path/to/proc_model.pkl \\
-      --n_dims 32 --mode not_all8
+  # SRM / Procrustes (pass the fitted model pkl from baselines/fitted_models/)
+  python evaluate_methods.py --method srm \\
+      --alignment_model_path path/to/srm_rndinit_shared872_32d_model.pkl \\
+      --n_dims 32 --subjects 1 2 5 7 --mode not_all8 --test_size 1.0 --output_dir <dir>
+  python evaluate_methods.py --method procrustes \\
+      --alignment_model_path path/to/procrustes_a_rndinit_shared872_32d_model.pkl \\
+      --n_dims 32 --subjects 1 2 5 7 --mode not_all8 --test_size 1.0 --output_dir <dir>
 """
 
 import argparse
@@ -220,15 +223,21 @@ def load_alignment_model(method, alignment_model_path, n_components):
         model_path = alignment_model_path
     else:
         model_dir = alignment_model_path
-        possible_paths = [
-            os.path.join(model_dir, f"{method}_shared872_{n_components}d_model.pkl"),
-            os.path.join(model_dir, f"{method}_shared872_{n_components}d.pkl"),
-            os.path.join(model_dir, f"detsrm_shared872_{n_components}d_model.pkl"),
-            os.path.join(model_dir, f"detsrm_shared872_{n_components}d.pkl"),
-            os.path.join(model_dir, f"srm_shared872_{n_components}d_model.pkl"),
-            os.path.join(model_dir, f"procrustes_shared872_{n_components}d_model.pkl"),
-            os.path.join(model_dir, f"procrustes_a_shared872_{n_components}d_model.pkl"),
-        ]
+        # Only this method's files; the paper's random-init refits (written by
+        # baselines/fit_srm.py / fit_proca.py) take precedence over the standard fits
+        # (baselines/fit_baselines.py) and older names.
+        if method == 'srm':
+            names = [f"srm_rndinit_shared872_{n_components}d_model.pkl",
+                     f"srm_shared872_{n_components}d_model.pkl",
+                     f"srm_shared872_{n_components}d.pkl",
+                     f"detsrm_shared872_{n_components}d_model.pkl",
+                     f"detsrm_shared872_{n_components}d.pkl"]
+        else:
+            names = [f"procrustes_a_rndinit_shared872_{n_components}d_model.pkl",
+                     f"procrustes_shared872_{n_components}d_model.pkl",
+                     f"procrustes_shared872_{n_components}d.pkl",
+                     f"procrustes_a_shared872_{n_components}d_model.pkl"]
+        possible_paths = [os.path.join(model_dir, name) for name in names]
         model_path = None
         for path in possible_paths:
             if os.path.exists(path):
@@ -236,6 +245,9 @@ def load_alignment_model(method, alignment_model_path, n_components):
                 break
         if model_path is None:
             raise FileNotFoundError(f"Alignment model not found. Tried: {possible_paths}")
+        if model_path != possible_paths[0]:
+            print(f"NOTE: {possible_paths[0]} not found; using {os.path.basename(model_path)}, "
+                  f"which is not the paper's random-init {method.upper()} model")
 
     with open(model_path, 'rb') as f:
         model_dict = pickle.load(f)
@@ -259,7 +271,7 @@ def load_noise_ceilings(subjects, nc_data_dir=NC_DATA_DIR):
         nc_path = os.path.join(nc_data_dir, f"subj{subj_str}", "ncsnr_processed",
                                NOISE_CEILING_TEMPLATE.format(sid=subj_str))
         if not os.path.exists(nc_path):
-            print(f"  Warning: NC file not found for subject {subj}: {nc_path}")
+            print(f"  Noise-ceiling file not found for subject {subj} (optional): {nc_path}")
             return None
         nc = np.load(nc_path)
         nc_dict[subj] = nc
@@ -378,8 +390,12 @@ def get_shared_images(data_path, target_subjects=[1, 2, 5, 7], exclude_subjects=
             exclude_images_per_subj[subj] = set(np.unique(img_indices))
             print(f"  Subject {subj}: {len(exclude_images_per_subj[subj])} unique test images")
         except Exception as e:
-            print(f"  Subject {subj}: Could not load - {e}")
-            exclude_images_per_subj[subj] = set()
+            # An empty set here would silently change the test set (e.g. not_all8 -> all
+            # images the target subjects share), so stop instead.
+            raise RuntimeError(
+                f"Could not load the fMRI of subject {subj} ({type(e).__name__}: {e}). "
+                f"--mode {mode} needs the fMRI files of all 8 subjects: subjects "
+                f"{exclude_subjects} define the test images.") from e
 
     if mode == 'exclusive':
         exclude_union = set()
@@ -500,7 +516,7 @@ def load_vae_test_split(data_path, subjects, remove_all_overlaps=False, filter_n
 def load_cross_trial_data_streams(hero_subjects, mode='not_all8',
                                    cross_trial_dir=CROSS_TRIAL_DATA_DIR):
     if not os.path.isdir(cross_trial_dir):
-        print(f"  Cross-trial data directory not found: {cross_trial_dir}")
+        print(f"  Single-trial data directory not found (optional): {cross_trial_dir}")
         return None
 
     all_subjects = list(range(1, 9))
@@ -508,11 +524,13 @@ def load_cross_trial_data_streams(hero_subjects, mode='not_all8',
 
     image_to_valid_subjects = defaultdict(set)
     subject_data = {}
+    missing = []
 
     for subj in all_subjects:
         fpath = os.path.join(cross_trial_dir, FMRI_TRIAL_FILE_TEMPLATE.format(sid=f"{subj:02d}"))
         if not os.path.exists(fpath):
             print(f"  Warning: {fpath} not found")
+            missing.append(subj)
             continue
         npz = np.load(fpath)
         fmri_data = npz['fmri_data']
@@ -529,6 +547,14 @@ def load_cross_trial_data_streams(hero_subjects, mode='not_all8',
 
         if subj in hero_subjects:
             subject_data[subj] = {'fmri_data': fmri_data, 'image_ids': image_ids}
+
+    # The image selection below needs the evaluated subjects and, for not_all8 /
+    # exclusive, all 8 subjects; with files missing it would select other images.
+    needed = all_subjects if mode in ('not_all8', 'exclusive') else hero_subjects
+    if any(s in missing for s in needed):
+        print(f"  Single-trial files missing for subjects {missing}; --mode {mode} needs "
+              f"subjects {needed}")
+        return None
 
     hero_set = set(hero_subjects)
     all_set = set(all_subjects)
@@ -1238,11 +1264,15 @@ def get_args():
     parser.add_argument("--mode", type=str, default="not_all8",
                         choices=['exclusive', 'not_all8', 'all_common', 'shared_only', 'vae_test'])
     parser.add_argument("--new_test", action="store_true", default=True)
-    parser.add_argument('--test_size', type=float, default=0.1)
+    parser.add_argument('--test_size', type=float, default=1.0,
+                        help="Fraction of the candidate rows used to build the test set "
+                             "(paper: 1.0 = all, giving the 128-image not_all8 set; "
+                             "<1 takes a random subset and changes the test set)")
 
     # Output
     parser.add_argument("--output_dir", type=str, default=None,
-                        help="Output directory (default: EVALUATION_DIR/results_vae or results)")
+                        help="Output directory (default: ccn_config.RESULTS_DIR = "
+                             "$CCN_RESULTS_DIR, else medvae/results)")
 
     # VAE ANN activations override
     parser.add_argument('--ann_activations', type=str, default=None)
@@ -1265,12 +1295,10 @@ def get_args():
     if args.data_path is None:
         args.data_path = NSD_DIR + os.sep
 
-    # Auto-detect output dir
+    # Default output dir: RESULTS_DIR (next to the checkpoints), never the bundled
+    # paper outputs in evaluation/results/.
     if args.output_dir is None:
-        if args.method == 'vae':
-            args.output_dir = os.path.join(EVALUATION_DIR, "results_vae")
-        else:
-            args.output_dir = os.path.join(EVALUATION_DIR, "results")
+        args.output_dir = RESULTS_DIR
 
     # Auto-detect VAE checkpoint
     if args.method == 'vae' and args.vae_checkpoint is None:
@@ -1279,7 +1307,9 @@ def get_args():
             VAE_CHECKPOINT_TEMPLATE.format(n_dims=args.n_dims))
 
     # Baseline model path (SRM/Procrustes) must be supplied explicitly — point to the
-    # fitted alignment model .pkl produced by baselines/fit_baselines.py (or fit_*_random.py).
+    # fitted alignment model .pkl (the paper's random-init refits come from
+    # baselines/fit_srm.py / baselines/fit_proca.py, the standard fits from
+    # baselines/fit_baselines.py) or to the directory holding it.
     if args.method in ('srm', 'procrustes') and args.alignment_model_path is None:
         raise SystemExit(
             f"--alignment_model_path is required for --method {args.method}: pass the path to "
@@ -1374,7 +1404,8 @@ def main():
     print("="*60)
     nc_dict = load_noise_ceilings(args.subjects)
     if nc_dict is None:
-        print("  NC normalisation will be skipped (missing files)")
+        print("  Skipping the optional noise-ceiling (NC) normalisation (missing files); "
+              "all other metrics are unaffected")
 
     # --- Evaluate ---
     if args.mode == 'vae_test':
@@ -1433,6 +1464,9 @@ def main():
             ann_act_path = ANN_ACTIVATIONS["rn50_untrained_51060"]
         elif nn_input_dim == 51060:
             ann_act_path = ANN_ACTIVATIONS_PATH_STREAMS
+        elif nn_input_dim == 51048 and args.dataset == 'streams':
+            # main paper scaffold built by data_preparation/extract_ann_features.py
+            ann_act_path = ANN_ACTIVATIONS_PATH_STREAMS
         elif nn_input_dim == 26368:
             ann_act_path = ANN_ACTIVATIONS_PATH_CLIP
         elif nn_input_dim == 49000 or nn_input_dim == 74524:
@@ -1469,7 +1503,8 @@ def main():
         if cross_trial_data is not None:
             cross_trial_metrics = compute_cross_trial_correlations(handler, cross_trial_data, args.subjects)
         else:
-            print("  Skipping cross-trial correlation (no data found)")
+            print("  Skipping the optional cross-trial reconstruction (no usable single-trial "
+                  "data); all other metrics are unaffected")
 
     # --- Decoding & silhouette ---
     decoding_results = None
@@ -1515,7 +1550,8 @@ def main():
             print(f"  Combined silhouette: {silhouette_combined:.4f}")
             print(f"  Per-subject: {[f'{s:.4f}' for s in silhouette_per_subject]}")
         except Exception as e:
-            print(f"  Warning: Silhouette computation failed: {e}")
+            print(f"  WARNING: silhouette computation failed ({type(e).__name__}: {e}); "
+                  f"'silhouette' is None in the results pkl")
     else:
         print("\nSkipping decoding and silhouette (import failed or no latent space)")
 

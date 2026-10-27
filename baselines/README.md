@@ -1,167 +1,139 @@
-# `baselines/` — corrected & strengthened SRM / Procrustes
+# `baselines/`: SRM and Procrustes
 
-> **See [FINDINGS.md](FINDINGS.md) for the current status, results, and the key
-> methodological finding** (comp-corr is orientation-arbitrary for these baselines →
-> use RSA/decoding/retrieval; init & PCA are immaterial). This README documents the code.
+The paper's two classical cross-subject alignment baselines: the shared response model
+(SRM) and generalised Procrustes analysis. Each maps every subject's fMRI to a 32-d shared
+space, like the MED-VAE latent space. Both align the subjects on the 872 images that all
+eight subjects saw; the fitted models are saved to `fitted_models/` and evaluated on the 128
+test images (seen by subjects 1, 2, 5 and 7 but not by all eight) by
+`evaluation/evaluate_methods.py` (`scripts/eval_medvae.sh`).
 
-A clean re-implementation of the MEDVAE classical alignment baselines (SRM and
-Procrustes), written to be **as correct and as strong as possible** so the
-MED-VAE-vs-baseline comparison is fair.
+## The models
 
-**Nothing in the existing `baselines_old/`, `evaluation/`, or `medvae/` is modified.**
-This folder is additive and stays drop-in compatible with the existing evaluation
-pipeline (same per-subject aligned-latent contract, same `(n_features, k)`
-orthonormal `W`, same `training_means` / apply convention).
+Each subject's responses are first reduced by PCA, fitted on every image that subject saw
+(fMRI only, no labels; for subjects 1, 2, 5 and 7 this includes the 128 test images). The
+alignment is then fitted on the PCA scores of the 872 shared images:
 
-> Status: algorithms + synthetic correctness test are done and **pass**
-> (`test_correctness.py`, all 4 checks at cross-subject r = 1.000). The cluster
-> `fit_baselines.py` driver wires them to the real data + the shared eval; it
-> still needs one real run to regenerate the comparison numbers.
+- **SRM** (`fit_baselines.py --method srm`, `srm.py`): deterministic SRM (Chen et al.,
+  2015) on 5,000 PCA components. It learns, for each subject, a 5000 × 32 matrix `W_i` with
+  orthonormal columns, and one shared response `S` (872 × 32) minimising
+  `Σ_i ‖X_i − S W_iᵀ‖²`, alternating the two updates until the objective converges (at
+  most 200 iterations, relative tolerance 1e-6).
+- **Procrustes** (`--method procrustes_a`, `procrustes.py`): generalised Procrustes
+  analysis on 32 PCA components. A Procrustes transform is a rotation and keeps the
+  dimensionality, so each subject is reduced to 32 components first ("variant A"); each
+  subject's 32 × 32 rotation `W_i` is then fitted iteratively onto the mean of the rotated
+  subjects until their summed squared distance to it converges (same limits).
 
----
+A subject's fMRI `X` maps to the shared space as `z = (pca_i.transform(X) − μ_i) W_i`, where
+`μ_i` is the subject's mean PCA score over the 872 images; the evaluation maps back with
+`pca_j.inverse_transform(z W_jᵀ + μ_j)`, for reconstruction (j = i) and cross-subject
+prediction (j ≠ i).
 
-## TL;DR of what was wrong / weak in `baselines_old/`
+`fit_baselines.py` also offers options not used in the paper: `--method procrustes_b`
+(rotate in `--n_pca_procb` = 200 PCA dimensions, then reduce the consensus to 32),
+`--method all`, `--no_pca` (SRM on the raw vertices; saves no model), `--srm_init random`
+and `--load_model <pkl>` (re-evaluate a saved model). `python fit_baselines.py --help`
+lists all flags.
 
-| # | Severity | Issue | Where | Effect |
-|---|----------|-------|-------|--------|
-| 1 | High | **Procrustes never trims to `k`.** `align_generalized_procrustes` computes `aligned_trim = x[:, :n_cca]` and then returns the *full-dim* `aligned_full`, discarding the trim (docstring even claims 4 returns; it returns 3). | `baselines_old/procrustes.py:62-67` | Forces `n_pca == n_components` for any comparable eval. This is *why* Procrustes had to be run at `n_pca=32` instead of being given 5000 like SRM. Present in the original paper code too. |
-| 2 | Med-High | **UMAP applied to the common set only**, not to full/generalization data; argparse default is `n_umap=10`. | `baselines_old/data_processing.py:130-142` | With the default, the alignment is fit at a different dim than the data it's later applied to → dim mismatch. The README example (no `--n_umap`) would crash. Masked only because the SLURM script passes `--n_umap 0`. |
-| 3 | Med | **Unconditional `import umap`** inside the reduction fn, even when `n_umap=0`. | `baselines_old/data_processing.py:94` | Couples baseline *fitting* to a working umap/numba install (broken under numpy 2.x `ns` env) although umap is unused. |
-| 4 | ~~Med~~ → **corrected: not a bug** | **No leakage in the intended protocol.** Methods are fit on the **872** (images all 8 subjects saw) and generalization is tested on the **128** (images shared by subjects 1,2,5,7 but seen by ≤7 subjects). The 128 are disjoint from the 872 *by construction*, so fit-872 / test-128 has **no leakage**. `vstack(train_common, test_common)` merely reassembles the full 872 from the two data loaders — it is **not** leakage. | `fit_baselines.py:137` | — |
-| 4b | Low (caveat) | The **separate full-test-set** recon/decoding/silhouette path (`alignment.py` §3, `full_data_reduced_test`) mixes in the VAE's 10% test split and *does* overlap the 872's test-split rows. If those numbers are reported as "generalization," that path is not a clean held-out — the **128 pairwise** path is. | `baselines_old/alignment.py:189-251` | Only matters if §3 (not the 128) is the reported generalization metric. |
-| 5 | Med | **Repo ≠ paper for SRM.** The repo's `fit_baselines.sh` defaults `N_PCA→N_COMPONENTS` (=32); its logs + saved model (`detsrm_shared872_32d_model.pkl` is 21 MB = 32-comp float32 PCA) show SRM was re-run at `n_pca=32`, not the paper's 5000. | `scripts/fit_baselines.sh` | SRM@32 is degenerate (n_pca==k ⇒ square orthogonal rotation, **no bottleneck**). The regenerated SRM numbers understate the paper's SRM. |
-| 6 | Low | SRM had a noisy "try 3 inits, pick best" block + heavy DEBUG prints, **no convergence check** (fixed `n_iter`), and re-derived centering means in two places. | `baselines_old/srm.py` | Cosmetic + reproducibility; cleaned up here. |
-| 7 | Med (R²/MSE only) | **Reconstruction centering bug.** `X_recon = aligned @ W.T` is in *training-mean-centered* PCA space, but `inverse_transform` only re-adds `pca.mean_` — `training_mean` is never added back, so the reconstruction is off by a per-voxel constant. | `evaluation/metrics.py:403-410`; `prediction.py:108-113` | Pearson correlation is invariant to a per-voxel offset, so **voxel/sample-correlation metrics are UNAFFECTED**; only **R²/MSE** are biased. Fixed for the 128 via `recon_fixed.py` (existing code untouched). |
+## Fitting
 
-> The 78-agent audit independently **confirmed** findings 1–7 and the methodology
-> points below, and **refuted** several false candidates (see next block). It also
-> verified the *core math* of both methods is correct (SVD E-step, GPA centroid,
-> centering consistency, subject-exclusion logic).
+```bash
+sbatch scripts/fit_baselines.sh      # from the repository root (without SLURM: bash scripts/fit_baselines.sh)
+```
 
-**Refuted (verified false — do not trust these earlier claims):**
-- An automated claim that SRM init "Method 1" `np.mean(X, axis=0)` vstacks to `(6976,5000)` — **false**; numpy stacks the list to `(8,872,5000)` and means to `(872,5000)`. The 3-init heuristic was still removed here for cleanliness, but it was not a numeric bug.
-- `exclude_subjects=[2,3,5,7]` in `baselines_old/alignment.py:184` **correctly keeps** the hero subjects 1,2,5,7 (0-indexed exclude `{2,3,5,7}` → include `{0,1,4,6}`). Only the docstrings ("excluding 3 & 6") are stale; the behaviour is right.
+runs four fits in two stages:
 
----
+```bash
+cd baselines
+# 1. standard fits: per-subject PCA, then the alignment from the standard start
+python fit_baselines.py --method srm          --n_pca 5000 --n_components 32 --model_dir fitted_models
+python fit_baselines.py --method procrustes_a --n_pca 32   --n_components 32 --model_dir fitted_models
+# 2. refits from a random start that reuse those PCA bases: the paper's baselines
+N_PCA=0 python fit_srm.py
+python fit_proca.py
+```
 
-## The key methodological point: can Procrustes do 5000 → 32?
+(The script also passes `--dataset streams`, `--filename` and `--output_dir`; see the script.)
 
-**No — plain Procrustes cannot reduce dimensionality.** Orthogonal Procrustes solves
-`min_R ‖XR − T‖_F s.t. RᵀR = I`; the solution `R = UVᵀ` is a *square* orthogonal
-matrix, i.e. a pure rotation. It maps `p → p`. To get a `k`-D Procrustes
-representation you must bolt on a reduction step. There are two principled ways,
-both implemented here:
+1. `fit_baselines.py` loads the data with the MED-VAE data loader: the fMRI of all eight
+   subjects and the category labels from `$CCN_DATA_ROOT/nsd/data/`, and the ANN features
+   file (`--filename`, default `ann_features.npy`), which the baselines load but do not
+   use. It fits the per-subject PCA and the alignment (SRM starting from the PCA scores of
+   the cross-subject mean response, Procrustes from the data as they are), saves
+   `fitted_models/<method>_shared872_32d_model.pkl`, and evaluates the fit on the 872 and on
+   the 128. For `procrustes_a` the number of PCA components is `--n_components` (`--n_pca`
+   is ignored). This evaluation writes to `--output_dir` (default `results_improved/`;
+   the script uses `ccn_results_evaluation/`) and to `results/` in the working directory;
+   neither the paper's evaluation nor the figures read these files.
+2. `fit_srm.py` takes the PCA of `fitted_models/srm_shared872_32d_model.pkl` and refits SRM
+   from a random shared response; `fit_proca.py` takes the PCA of
+   `fitted_models/procrustes_a_shared872_32d_model.pkl` and refits Procrustes after a
+   random rotation of each subject. Both are fixed to 32 components, print the component
+   correlation and the Euclidean RSA on the 872 and on the 128, and save their model to
+   `baselines/fitted_models/`, a fixed path (so stage 1 must save there too). With
+   `N_PCA` > 0 in the environment, `fit_srm.py` would instead refit the PCA with that many
+   components and save `srm_rndinit_npca<N_PCA>_32d_model.pkl`, hence `N_PCA=0`.
 
-- **Variant A — reduce *before* (the paper's choice).** PCA each subject `5000→32`,
-  then GPA rotates inside the 32-D space. `Wᵢ = Rᵢ` (32×32 orthogonal). Standard, but
-  each subject's 32-D is its *own* top-32 PCA, and shared signal in PCA comps > 32 is
-  discarded *before* alignment.
-- **Variant B — reduce *after* (stronger, matches SRM's input richness).** PCA `5000`,
-  GPA-rotate in 5000-D, then take the top-`k` principal directions `V_k` of the
-  *aligned consensus* and project: `Wᵢ = Rᵢ V_k` (5000×32, **orthonormal columns**).
-  This lets Procrustes exploit all 5000 dims, like SRM.
+The random start changes the orientation in which the shared space ends up, not the quality
+of the alignment (see the docstrings of `fit_srm.py` and `fit_proca.py`, and
+[Rotation](#rotation)). The paper reports the random-start model of both methods, so both
+orientations come from the same kind of start.
 
-A dimensionality-reducing orthonormal alignment is, mathematically, almost exactly
-**SRM** (SRM's per-subject E-step *is* "orthogonal Procrustes onto a shared `k`-D
-target"). So Variant B converges toward SRM — expected, and a useful sanity check.
+### Outputs
 
-By contrast, **SRM is natively reducing**: it learns `Wᵢ ∈ ℝ^{5000×32}` with
-`WᵢᵀWᵢ = I₃₂` and a shared response `S ∈ ℝ^{T×32}` minimising `Σᵢ‖Xᵢ − S Wᵢᵀ‖²`. That
-is the right tool for `5000 → 32`.
+`fitted_models/` is not part of the repository (it is gitignored); the fits create it:
 
-So everything lands at **32-D** for the comparison with the 32-D MED-VAE latent:
-MED-VAE encoder → 32; SRM `5000 → 32`; Procrustes A (`PCA→32`, rotate) and Procrustes
-B (`PCA→5000`, rotate, reduce → 32).
+| File | Written by | Size | Used for |
+|---|---|---|---|
+| `srm_shared872_32d_model.pkl` | `fit_baselines.py --method srm` | 3.3 GB | its PCA, reused by `fit_srm.py` |
+| `procrustes_a_shared872_32d_model.pkl` | `fit_baselines.py --method procrustes_a` | 22 MB | its PCA, reused by `fit_proca.py` |
+| `srm_rndinit_shared872_32d_model.pkl` | `fit_srm.py` | 3.3 GB | the paper's SRM |
+| `procrustes_a_rndinit_shared872_32d_model.pkl` | `fit_proca.py` | 22 MB | the paper's Procrustes |
 
----
+Each file pickles a dict with the per-subject `W_list`, `pca_models` (fitted scikit-learn
+PCA) and `training_means` (the `μ_i`), plus `method_name`, `n_subjects`, `n_components` and
+`n_pca_features`. The two `rndinit` files are the defaults of `scripts/eval_medvae.sh`
+(`evaluation/evaluate_methods.py --alignment_model_path`) and the files to pass to
+`visualisation/visualise_latent.py --alignment_model`. The SRM files are large because they
+hold the 5,000-component PCA bases.
+
+### Determinism and resources
+
+The fits are seeded. `fit_baselines.py --seed` (default 42) seeds Python, NumPy and PyTorch
+(which fixes the order in which the shuffled training loader yields the images) and the PCA;
+`fit_srm.py` and `fit_proca.py` seed NumPy and PyTorch with 42, and draw the random SRM
+start with seed 42 and the random Procrustes rotations with seed 0 (`INIT_SEED`). The same
+data and software environment therefore give the same models.
+
+The fits run on the CPU: PyTorch only serves the data loader (a visible GPU just switches on
+loader workers and pinned memory). The loader holds the fMRI of all eight subjects and the
+ANN features in RAM. On our cluster the four fits, run one after the other, peaked at
+~160 GiB of RAM and took ~45 min in total on 11 CPU cores; `scripts/fit_baselines.sh`
+requests `--mem 192G`.
+
+## Rotation
+
+SRM and Procrustes determine the shared space only up to a rotation: rotating every `W_i`
+(and SRM's shared response) by the same orthogonal matrix leaves their objectives
+unchanged, and the rotation a fit ends in depends on where it starts. Component correlation
+compares the shared dimensions one at a time, so for these models its value depends on that
+arbitrary rotation: the standard and the random-start fits give different values for the
+same alignment. Metrics computed from distances between images in the shared space do not
+depend on it: Euclidean RSA, retrieval (Euclidean and cosine distances) and the silhouette
+(Euclidean distances); neither do the cross-subject decoding (an L2-regularised logistic
+regression), reconstruction and cross-subject prediction (`W_i W_jᵀ` is unchanged). The
+paper's RSA builds its dissimilarities from 1 − Pearson correlation between images, which
+removes each image's mean over the 32 dimensions, so it is not exactly rotation-invariant.
 
 ## Files
 
-| File | What |
+| File | Content |
 |---|---|
-| `srm.py` | Clean deterministic SRM (`fit_detsrm`) + `apply_alignment`. Orthonormal `(n_features,k)` `W`; documented SVD init; real convergence check; returns centering means. |
-| `procrustes.py` | `fit_gpa` (GPA in input dim) + `align_procrustes(..., reduce_after=)` for variants **A** and **B**; `apply_alignment`. Both return orthonormal-column `W`. |
-| `reduction.py` | `reduce_subjects` — per-subject PCA fit-on-full / transform-common. No umap coupling, no stray files, per-method `n_pca`; asserts equal effective `n_pca` across subjects. |
-| `recon_fixed.py` | `evaluate_reconstruction_fixed` — correctly-centered self-reconstruction (re-adds `training_mean` before `inverse_transform`), fixing the R²/MSE bug without touching `evaluation/`. |
-| `test_correctness.py` | Self-contained synthetic tests (no data/GPU/cluster). Validates SRM signal recovery, Procrustes A & B alignment + reduction, orthonormality, and apply-to-new-data. |
-| `fit_baselines.py` | Cluster driver: data → reduction → align (srm / procrustes_a / procrustes_b) → the **existing** shared evaluation, so numbers are directly comparable to the VAE. All generalization metrics on the 128; corrected reconstruction via `recon_fixed`. |
-
-### The eval contract (why this is drop-in)
-The shared evaluation consumes, per subject: an aligned latent `(n_images, k)`, a
-transform `W` of shape `(n_features, k)` with **orthonormal columns**, the PCA model,
-and a `training_mean`. It then uses `aligned @ Wᵀ` (rank-`k` reconstruction) and
-`Wᵢ Wⱼᵀ` (cross-prediction). Every method here returns exactly that, and
-`apply_alignment` replays `(X − training_mean) @ W`, identical to
-`baselines.alignment.apply_trained_alignment`.
-
----
-
-## How to run
-
-**1. Correctness test (fast, CPU):**
-```bash
-cd baselines
-sbatch -A costa.prj -p short -c 2 --mem 4G --time 00:05:00 \
-  -o test_%j.out -e test_%j.out \
-  --wrap='source /well/costa/users/odx145/miniconda3/etc/profile.d/conda.sh; \
-          conda activate ns; cd '"$PWD"'; python3 -u test_correctness.py'
-```
-Expect: `ALL PASSED` (4/4).
-
-**2. Fit a baseline on the real data (regenerate comparison numbers):**
-```bash
-# SRM: 5000 -> 32 (paper config)
-METHOD=srm        N_PCA=5000 N_COMPONENTS=32 sbatch ... fit_baselines.py ...
-# Procrustes A: PCA->32, rotate
-METHOD=procrustes_a            N_COMPONENTS=32 sbatch ... fit_baselines.py ...
-# Procrustes B: PCA->5000, rotate, reduce->32
-METHOD=procrustes_b N_PCA=5000 N_COMPONENTS=32 sbatch ... fit_baselines.py ...
-```
-(See `fit_baselines.py --help` for the exact flags; it mirrors the existing
-`baselines_old/fit_baselines.py` data flags.)
-
----
-
-## Protocol (confirmed, implemented in `fit_baselines.py`)
-- **Fit** the alignment on the **872** images (seen by all 8 subjects).
-- **Test** generalization on the **128** images shared by subjects 1,2,5,7 (seen by
-  ≤7 subjects, hence disjoint from the 872 → no fit/test leakage).
-- **Every** generalization metric is on that **same 128**: alignment, retrieval,
-  decoding, silhouette (latent-space via the shared `evaluate_aligned_latents`) **and**
-  cross-subject prediction + reconstruction (voxel-space via `run_pairwise_analysis_pipeline`)
-  — matching the VAE's `not_all8` eval.
-- The VAE's 90/10 split is **not used**: we merge both loaders, fit PCA on **all**
-  per-subject data, and use the full 872 / full 128.
-
-> **Inconsistency this fixes (vs `baselines_old/`):** the original computes decoding &
-> silhouette generalization on the **full per-subject test set** (`alignment.py` §3),
-> not on the 128 — a *different* image set from the one the VAE uses (`not_all8`),
-> so those two metrics were not comparable between baseline and VAE. Here they're on
-> the 128, like the VAE.
-
-## Open items (need a real cluster run to close)
-- Regenerate SRM at the **paper's `n_pca=5000`** (not the repo's degenerate 32) and
-  confirm it matches / improves on the published SRM.
-- Report Procrustes **A vs B** side by side to show the baseline isn't crippled by
-  pre-reduction (expectation: B ≥ A, and B ≈ SRM).
-- Validate the full driver end-to-end on real data (the synthetic test covers the
-  algorithms; the data plumbing — 872/128 extraction, `evaluate_aligned_latents`
-  wiring — only runs on the cluster).
-- **VAE-parity audit (important):** confirm the VAE eval uses the *identical* 128
-  held-out set, the *same* decoder (`test_multilabel_decoding_balanced`, same hyper-
-  params), and the same RSA convention (raw vs centered) — otherwise the fairness
-  fixes here are undone on the VAE side. (The baselines' PCA columns are zero-mean so
-  raw==centered RSA, but VAE μ are not, so the convention matters for the VAE.)
-- Report **mean ± std over ≥3 seeds/splits** (SRM-EM and GPA are iterative; a single
-  seed=42 run can mis-rank methods). Submit via `sbatch --wrap` with different `--seed`.
-- Add **anchors**: a no-alignment lower bound and a within-subject noise-ceiling upper
-  bound, so the VAE-vs-baseline gap is contextualized (Bazeille et al. 2021/2024).
-- Confirm the **effective `n_pca`** for SRM at 5000 (PCA is fit on each subject's full
-  data, ~9k rows, so 5000 should be reachable — the driver now asserts equality across
-  subjects and logs the effective value).
-- Optional, to pre-empt the "weak baselines" critique: add an **Optimal Transport**
-  alignment (fmralign / POT), the current classical SOTA per the Bazeille benchmark.
-- Optional: a probabilistic SRM (Chen 2015) variant — the original had
-  `apply_probabilistic_srm` (dropped in the cleanup). Its aligned rep is the
-  posterior shared response, not `X @ W`, so it needs a small contract shim; left out
-  for now to keep the orthonormal-`W` contract clean.
+| `fit_baselines.py` | stage 1: data, PCA, alignment, saved model, evaluation |
+| `fit_srm.py`, `fit_proca.py` | stage 2: random-start refits on the stage-1 PCA |
+| `srm.py` | `fit_detsrm` (deterministic SRM), `apply_alignment` |
+| `procrustes.py` | `fit_gpa`, `align_procrustes` (variants A and B), `apply_alignment` |
+| `reduction.py` | `reduce_subjects` (per-subject PCA), `IdentityPCA` (for `--no_pca`) |
+| `data_processing.py` | extracts each subject's images, the 872 shared images and the partially shared images from the data loader |
+| `recon.py` | self-reconstruction on the 128 with `μ_i` added back before the inverse PCA (printed by `fit_baselines.py`) |
+| `model_io.py` | `save_alignment_model`, which writes the model files |

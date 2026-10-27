@@ -1,19 +1,22 @@
 """Generate Panel-A latent-space data for MED-VAE / SRM / Procrustes (self-contained).
 
 For each method, encode/align the held-out VALIDATION images per subject, select a
-label-balanced subset, reduce all subjects jointly to 2D with UMAP (n_components=2,
-random_state=42 — identical to the original figure), and dump
+label-balanced subset (--n_images, default 3000), reduce all subjects jointly to 2D with
+UMAP (n_components=2, random_state=42, as for the paper's figure), and dump
   {encoder_idx: {'representations': (n,2), 'labels': (n,n_cat)}}  for Figure-2 Panel A.
 
   --method vae         : encode via the MED-VAE per-subject encoders (mu)
   --method srm|procrustes : apply the 872-fit alignment  (pca.transform - mean) @ W
 
-All three reuse MED-VAE's own validation loader (medvae/load_data) built from the VAE
-checkpoint's config, so the image set is identical across methods.
+All three reuse MED-VAE's own validation loader (medvae/pipeline.load_data) built from the
+VAE checkpoint's config, so the image set is identical across methods; --vae_checkpoint is
+therefore required for every method. --out is required: render_figure.py reads
+encoder_data_2d_{VAE,srm,procrustes}.pkl from its --data_dir. Building the loader loads the
+full training data, so run on a node with enough memory (e.g. inside `sbatch --wrap`).
 
-  sbatch ... visualise_latent.py --method vae        --vae_checkpoint <ckpt> --out <pkl>
-  sbatch ... visualise_latent.py --method srm        --vae_checkpoint <ckpt> --alignment_model <pkl> --out <pkl>
-  sbatch ... visualise_latent.py --method procrustes --vae_checkpoint <ckpt> --alignment_model <pkl> --out <pkl>
+  python visualise_latent.py --method vae        --vae_checkpoint <ckpt> --out <dir>/encoder_data_2d_VAE.pkl
+  python visualise_latent.py --method srm        --vae_checkpoint <ckpt> --alignment_model <pkl> --out <dir>/encoder_data_2d_srm.pkl
+  python visualise_latent.py --method procrustes --vae_checkpoint <ckpt> --alignment_model <pkl> --out <dir>/encoder_data_2d_procrustes.pkl
 """
 import os
 import sys
@@ -24,7 +27,7 @@ import numpy as np
 import torch
 import umap
 
-_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # medvae_release/
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # repository root
 sys.path.insert(0, _REPO)                                  # for ccn_config
 sys.path.insert(0, os.path.join(_REPO, 'medvae'))          # for pipeline / common_samples
 
@@ -32,7 +35,7 @@ from pipeline import load_data, create_vae_model          # noqa: E402
 from common_samples import find_common_samples            # noqa: E402
 
 
-# ---------- vendored: joint 2D UMAP (multiencoder_alignment_paradox.py:499) ----------
+# ---------- joint 2D UMAP: one fit on all subjects' latents, so they share one embedding ----------
 def apply_umap_reduction(encoder_data, target_dim=2):
     all_latents, sizes = [], {}
     for enc_idx, data in encoder_data.items():
@@ -52,8 +55,8 @@ def apply_umap_reduction(encoder_data, target_dim=2):
     return out
 
 
-# ---------- vendored greedy label-balanced selection (select_images.py:121),
-# ---------- vectorized: identical objective, scored over all candidates per step ----------
+# ---------- greedy label-balanced selection: each step adds the image that keeps the
+# ---------- category counts most even, favouring under-represented categories (vectorized) ----------
 def _iterative_balanced_selection(all_data, n_images, n_classes):
     print(f"Iterative balanced selection for {n_images} images...")
     L = np.array([d['labels'] for d in all_data], dtype=float)   # (N, C)
@@ -149,7 +152,7 @@ def main():
         model = create_vae_model(args, args.input_dim, args.output_dim).to(device)
         model.load_state_dict(ckpt['model_state_dict']); model.eval()
         n_enc = len(model.encoders) - 1                      # exclude NN encoder
-        def batch_encode(X, e):                              # (n,V) numpy -> (n,latent) on GPU, chunked
+        def batch_encode(X, e):                              # (n,V) numpy -> (n,latent) on `device` (GPU if any), chunked
             out = []
             with torch.no_grad():
                 for k in range(0, len(X), 4096):

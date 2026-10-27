@@ -26,14 +26,14 @@ def _ll(n):
 
 
 proc_mod = _ll("procrustes")
-model_io = _ll("model_io")  # vendored copy -> folder is self-contained
+model_io = _ll("model_io")  # loaded by file path from baselines/, not via sys.path
 
 _REPO = os.path.dirname(_HERE)
 if _REPO not in sys.path:
     sys.path.insert(0, _REPO)
 from ccn_config import setup_paths, NSD_DIR, ANN_FEATURES_FILE  # noqa: E402
 setup_paths()
-_dp = _ll("data_processing")  # vendored copy -> folder is self-contained
+_dp = _ll("data_processing")  # loaded by file path from baselines/, not via sys.path
 extract_common_fmri_samples = _dp.extract_common_fmri_samples
 extract_pairwise_common_samples = _dp.extract_pairwise_common_samples
 from prediction import compute_training_means_pca                  # noqa: E402
@@ -56,8 +56,8 @@ def main():
     args = argparse.Namespace(
         dataset="streams", batch_size=64, test_size=0.1,
         filename=ANN_FEATURES_FILE,
-        output_dim=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733], nn_output_dim=51060,
-        input_dim=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733, 51060],
+        output_dim=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733], nn_output_dim=51048,
+        input_dim=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733, 51048],
         noise_level=0.0, max_memory_gb=150.0, remove_overlaps=False, remove_all_overlaps=False,
         shuffle_fmri=False, only_nn_encoder=False, only_fmri_encoders=False,
         framework="multiencoder", brain_to_brain=False, keep_percent=[100] * 8, train=False)
@@ -101,7 +101,7 @@ def main():
     model_io.save_alignment_model(W_list=[w.copy() for w in W], pca_models=pca,
                          training_means=tmeans,
                          method_name="procrustes_a_rndinit_shared872_32d", model_dir=MODEL_DIR)
-    print("PROCARND_SENTINEL_DONE")
+    print("fit_proca.py: done")
 
 
 if __name__ == "__main__":

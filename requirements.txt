@@ -1,17 +1,24 @@
-# Core dependencies for MED-VAE training, baselines, and evaluation.
-# Versions are unpinned here; the exact versions used for the paper are those of
-# the BMRC conda env `ns`. See environment.yml / requirements.txt for pinned versions.
-# versions from the verification run.
-torch
-torchvision
-numpy<2.3          # numba (used by umap-learn) requires NumPy <= 2.2
-scipy
-scikit-learn
-pandas
-matplotlib
-seaborn
-umap-learn
-tqdm
-h5py
-nibabel
-psutil
+# Dependencies for MED-VAE data preparation, training, baselines, evaluation and figures.
+# Pinned to the versions the release was verified with end to end (Python 3.13).
+# Keep numpy at 2.2: numba 0.61 (used by umap-learn, which the silhouette metric uses)
+# requires numpy <= 2.2, and a newer numpy breaks UMAP. The bundled result pickles need
+# numpy >= 2 to load.
+torch==2.7.0
+torchvision==0.22.0
+numpy==2.2.5
+scipy==1.15.3
+scikit-learn==1.6.1
+pandas==2.2.3
+matplotlib==3.10.3
+seaborn==0.13.2
+umap-learn==0.5.7
+pynndescent==0.5.13
+numba==0.61.2
+llvmlite==0.44.0
+tqdm==4.67.1
+h5py==3.15.1
+nibabel==5.3.2
+psutil==7.0.0
+# data preparation only (data_preparation/fetch_labels.py and the MindEye2 image download)
+pyarrow==20.0.0
+huggingface_hub==1.2.3

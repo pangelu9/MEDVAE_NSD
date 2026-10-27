@@ -6,9 +6,12 @@ repository contains no hard-coded absolute paths.
 Data is NOT shipped with this repository. Point the code at wherever the NSD
 fMRI responses and the ANN activation files live by setting the environment
 variable ``CCN_DATA_ROOT`` (or editing ``DATA_ROOT`` below). ``DATA_ROOT`` must
-be a directory containing the ``nsd/`` and ``nsd_classification/`` trees.
+contain ``nsd/data/`` with the files built by ``data_preparation/``
+(``fmri_subject{01..08}.npz``, ``ann_features.npy``, ``category_labels.npy``,
+``nsd_ids.npy``). ``nsd_classification/`` is only read by optional extras, e.g.
+the noise ceilings of the noise-ceiling-normalised metrics.
 
-    export CCN_DATA_ROOT=/path/to/code_may
+    export CCN_DATA_ROOT=/path/to/data
 
 Optional overrides:
     CCN_RESULTS_DIR   where trained MED-VAE checkpoints (.pt) are written/read
@@ -28,18 +31,19 @@ EVALUATION_DIR = os.path.join(REPO_ROOT, "evaluation")
 # --------------------------------------------------------------------------
 # Data location (NOT part of this repo)
 # --------------------------------------------------------------------------
-# Directory containing the original data trees: nsd/ and nsd_classification/.
-# Set CCN_DATA_ROOT (see module docstring); the placeholder default fails loudly
-# with a clear path if it is left unset.
+# Data directory: nsd/data/ holds the files built by data_preparation/; the other
+# trees (nsd_classification/, ...) only hold optional extras (see module docstring).
+# Set CCN_DATA_ROOT; the placeholder default fails loudly with a clear path if it
+# is left unset.
 DATA_ROOT = os.environ.get("CCN_DATA_ROOT", "/path/to/data")
 
 NSD_DIR = os.path.join(DATA_ROOT, "nsd")                 # contains data/, labels, ...
-NSD_DATA_DIR = os.path.join(NSD_DIR, "data")             # fMRI npz + ANN activations
+NSD_DATA_DIR = os.path.join(NSD_DIR, "data")             # fMRI npz + ANN features + labels
 NSD_CLASSIFICATION_DIR = os.path.join(DATA_ROOT, "nsd_classification")
 NSD_CLASSIFICATION_DATA_DIR = os.path.join(NSD_CLASSIFICATION_DIR, "data")
-MINDEYE_DATA_DIR = os.path.join(NSD_CLASSIFICATION_DIR, "data_mindeye2")
 
-# Per-subject NSD noise-ceiling (ncsnr) data, used by the reconstruction eval.
+# Optional per-subject NSD noise ceilings (ncsnr) for the noise-ceiling-normalised
+# metrics; not built by data_preparation/ (the evaluator skips that normalisation without them).
 NOISE_CEILING_DIR = NSD_CLASSIFICATION_DATA_DIR
 
 # Default location of trained MED-VAE checkpoints (.pt).
@@ -56,7 +60,8 @@ RESULTS_DIR = os.environ.get("CCN_RESULTS_DIR", os.path.join(MEDVAE_DIR, "result
 # local import, so a single override propagates everywhere. ``{sid}`` is the
 # zero-padded subject id (01..08); ``{n_dims}`` the latent dimensionality.
 
-# fMRI responses (per-subject .npz in NSD_DATA_DIR)
+# fMRI responses (per-subject .npz in NSD_DATA_DIR). The trial-wise data and noise
+# ceilings are optional inputs that data_preparation/ does not build.
 FMRI_FILE_TEMPLATE        = os.environ.get("CCN_FMRI_TEMPLATE",         "fmri_subject{sid}.npz")
 FMRI_TRIAL_FILE_TEMPLATE  = os.environ.get("CCN_FMRI_TRIAL_TEMPLATE",   "fmri_subject{sid}_trials.npz")
 FMRI_MINDEYE_TEMPLATE     = os.environ.get("CCN_FMRI_MINDEYE_TEMPLATE", os.path.join("mindeye", "fmri_subject{sid}.npz"))
@@ -92,9 +97,11 @@ ANN_SUBPATH_CLIP_RN50     = os.environ.get("CCN_ANN_CLIP_RN50",    os.path.join(
 ANN_SUBPATH_MNIST_RN50    = os.environ.get("CCN_ANN_MNIST_RN50",   "mnist_features_rn50_2048.npy")
 ANN_SUBPATH_MNIST_784     = os.environ.get("CCN_ANN_MNIST_784",    "mnist_features_784.npy")
 
-# Fallback trained-checkpoint filename (used by the evaluator when --vae_checkpoint
-# is omitted).
-VAE_CHECKPOINT_TEMPLATE   = os.environ.get("CCN_VAE_CHECKPOINT_TEMPLATE", "medvae_{n_dims}d.pt")
+# Checkpoint the evaluator loads from RESULTS_DIR when --vae_checkpoint is omitted:
+# the file scripts/train_medvae.sh writes with its defaults (medvae/main.py saves
+# medvae_<save_name>_<latent_dim>_b<KL_beta>.pt).
+VAE_CHECKPOINT_TEMPLATE   = os.environ.get("CCN_VAE_CHECKPOINT_TEMPLATE",
+                                           "medvae_ALLsubjects_RN50_streams_rvoverl_all_nnw5_annw5_{n_dims}_b1.0.pt")
 
 # --------------------------------------------------------------------------
 # Local, uncommitted overrides (gitignored): map the generic names above to your
@@ -111,11 +118,13 @@ except ImportError:
 # Multi-hot COCO super-category labels (70502 x 12).
 LABELS_PATH = os.path.join(NSD_DATA_DIR, LABELS_FILE)
 
-# Preprocessed trial-separated data for the cross-trial reconstruction (Fig 2C).
+# Optional trial-separated data for the cross-trial reconstruction (Fig 2C); not
+# built by data_preparation/ (the evaluator skips that metric without it).
 CROSS_TRIAL_DATA_DIR = os.path.join(DATA_ROOT, CROSS_TRIAL_SUBPATH)
 
 # Logical name -> absolute path. The eval scripts accept --ann_activations to
-# select one explicitly; if omitted they fall back to checkpoint-name matching.
+# select one explicitly (scripts/eval_medvae.sh passes rn50_streams unless
+# ANN_ACTIVATIONS is set); if omitted they fall back to checkpoint-name matching.
 _INFER_DIR = os.path.join(NSD_CLASSIFICATION_DIR, "code", ANN_INFER_SUBDIR)
 ANN_ACTIVATIONS = {
     # Main paper scaffold: ImageNet-pretrained ResNet-50 (streams ROIs)
@@ -136,12 +145,6 @@ ANN_ACTIVATIONS = {
     "mnist_rn50_2048":      os.path.join(DATA_ROOT, "ccn_final", "MNIST_experiment", ANN_SUBPATH_MNIST_RN50),
     "mnist_784":            os.path.join(DATA_ROOT, "ccn_final", "MNIST_experiment", ANN_SUBPATH_MNIST_784),
 }
-
-# MindAligner / MindEye2 decoder location. Only used by the (excluded from this
-# release) image-decoding path for the 'mindeye' dataset; install separately.
-MINDALIGNER_DIR = os.environ.get(
-    "CCN_MINDALIGNER_DIR",
-    os.path.join(DATA_ROOT, "mindaligner", "MindAligner"))
 
 
 def setup_paths():

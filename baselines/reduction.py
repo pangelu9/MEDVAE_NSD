@@ -6,19 +6,18 @@ fixes its problems:
 
   * NO unconditional ``import umap``.  The original imported umap at function top
     even when ``n_umap == 0``, so baseline *fitting* could not run in an
-    environment where umap/numba is broken (the repo's ``ns`` env, numpy 2.x) --
+    environment where umap/numba is broken (e.g. a NumPy too new for numba) --
     despite UMAP being unused.
   * NO UMAP applied to the common set only.  The original UMAP'd ``common`` but not
-    the full/generalization data, so (with the argparse default ``n_umap=10``) the
-    alignment was fit at a different dimensionality than the data it is later
-    applied to -- a latent dim-mismatch / "README example crashes" footgun.
+    the full/generalization data, so (with ``n_umap > 0``) the alignment was fit
+    at a different dimensionality than the data it is later applied to -- a
+    latent dim-mismatch.
   * Per-method ``n_pca`` is explicit (SRM: large, e.g. 5000; Procrustes-A: k).
   * No stray result files written as a side effect.
 
-PCA is fit on each subject's FULL data (every image that subject saw) and then
-applied to the shared/common images and to the held-out generalization images --
-identical to the paper, and leakage-free for the *basis* (the common-set
-statistics are never used to choose the PCA directions).
+PCA is fit on each subject's FULL data (every image that subject saw, so the shared
+images too; fMRI only, no labels) and then applied to the shared/common images and to
+the held-out generalization images, as for the paper's baselines.
 """
 
 from __future__ import annotations

@@ -54,7 +54,6 @@ def main():
 
         # hybrid_vae handles the input_dim differently (passed directly from args)
         if args.hybrid_vae:
-            # hybrid_vae handles differently the input_dim, I do not have to provide it like for the other parts of my code e.g., the previous versions that were doing fmri->nn only
             input_dims = args.input_dim
             output_dim=args.output_dim
 

@@ -8,12 +8,15 @@
             (within- / cross-trial voxel correlation).
 
 Inputs (all produced by the release pipeline — see README):
-  * Panel A   : visualisation/data/encoder_data_2d_{VAE,srm,procrustes}.pkl   (visualise_latent.py)
+  * Panel A   : <data_dir>/encoder_data_2d_{VAE,srm,procrustes}.pkl           (visualise_latent.py)
   * Panel B/C : <results>/alignment_eval_{method}_32d_not_all8_streams.pkl     (evaluation/evaluate_methods.py)
-  * stats     : visualisation/data/figure_stats.json                          (stat_tests.py)
+  * stats     : <data_dir>/figure_stats.json                                  (stat_tests.py)
+<data_dir> defaults to visualisation/data, <results> to $CCN_RESULTS_DIR, else evaluation/results.
+The cross-trial group of Panel C needs the optional single-trial data; if any method has no
+cross-trial results, the group (and its brackets) is left out with a NOTE.
 
 Usage:
-  python render_figure.py [--results <dir>] [--out figure.eps]
+  python render_figure.py [--results <dir>] [--data_dir <dir>] [--out figure.eps]
 """
 import os
 import json
@@ -31,7 +34,7 @@ from matplotlib.patches import Rectangle
 from collections import Counter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(HERE, 'data')
+DATA = os.path.join(HERE, 'data')   # default --data_dir: bundled Panel A data + figure_stats.json
 DEFAULT_RESULTS = os.environ.get(
     'CCN_RESULTS_DIR', os.path.join(os.path.dirname(HERE), 'evaluation', 'results'))
 
@@ -169,6 +172,16 @@ def plot_comparison_panel(ax, alignment, reconstruction, sig_results):
                     ('voxel_corr_mean', reconstruction, 'generalisation'),
                     ('voxel_corr_cross_trial', reconstruction, 'generalisation')]
     metric_labels = ['Comp. corr.', 'RSA', 'Voxel corr.\n(within-trial)', 'Voxel corr.\n(cross-trial)']
+    # Cross-trial (last group, index 3) needs the optional single-trial data: draw it only if
+    # every method has it. Without the group, index 3 gets no position, so its brackets are skipped.
+    ct_vals = reconstruction['voxel_corr_cross_trial']
+    no_ct = [m for m in METHODS if len(ct_vals.get((m, 'generalisation'), [])) == 0]
+    legend_y0 = 0.95
+    if no_ct:
+        print(f'NOTE: no cross-trial results for {no_ct} (the optional single-trial data were not provided): '
+              'Panel C omits the cross-trial group')
+        metric_order, metric_labels = metric_order[:3], metric_labels[:3]
+        legend_y0 = 0.18   # within-trial is now the rightmost group: legend to the free lower right
     violin_width, method_gap, group_spacing = 0.40, 1.1, 4.0
     metric_positions, metric_max_y = {}, {}
     for mi, (metric, store, dataset) in enumerate(metric_order):
@@ -190,7 +203,7 @@ def plot_comparison_panel(ax, alignment, reconstruction, sig_results):
         if max_y > -np.inf:
             metric_max_y[mi] = max_y
     _draw_brackets_and_axes(ax, metric_positions, metric_max_y, sig_results, metric_labels,
-                            title=('Alignment', 'Reconstruction'), legend_y0=0.95, divider_between=(1, 2))
+                            title=('Alignment', 'Reconstruction'), legend_y0=legend_y0, divider_between=(1, 2))
 
 
 def _draw_brackets_and_axes(ax, metric_positions, metric_max_y, sig_results, metric_labels,
@@ -234,10 +247,10 @@ def _draw_brackets_and_axes(ax, metric_positions, metric_max_y, sig_results, met
 
 
 # ============================== data loading ==============================
-def load_panel_A():
+def load_panel_A(data_dir=DATA):
     files = {'vae': 'encoder_data_2d_VAE.pkl', 'srm': 'encoder_data_2d_srm.pkl',
              'procrustes': 'encoder_data_2d_procrustes.pkl'}
-    return {m: pickle.load(open(os.path.join(DATA, f), 'rb')) for m, f in files.items()}
+    return {m: pickle.load(open(os.path.join(data_dir, f), 'rb')) for m, f in files.items()}
 
 
 def load_panel_BC(results_dir):
@@ -252,16 +265,17 @@ def load_panel_BC(results_dir):
         alignment['rsa_vals'][(m, 'pairwise')] = rsa[np.triu_indices(rsa.shape[0], k=1)]
         reconstruction['voxel_corr_mean'][(m, 'generalisation')] = np.array(
             [d['recon_per_subject'][s]['voxel_correlation'] for s in subs])
-        ct = d['cross_trial']['cross_trial_per_subject']
-        reconstruction['voxel_corr_cross_trial'][(m, 'generalisation')] = np.array(
-            [ct[s]['mean_voxel_corr'] for s in subs if s in ct])
+        if d.get('cross_trial') is not None:   # None without the optional single-trial data
+            ct = d['cross_trial']['cross_trial_per_subject']
+            reconstruction['voxel_corr_cross_trial'][(m, 'generalisation')] = np.array(
+                [ct[s]['mean_voxel_corr'] for s in subs if s in ct])
         category['within_exact'][(m, 'generalisation')] = np.asarray(d['decoding']['per_subject_exact'], float)
         category['within_balanced'][(m, 'generalisation')] = np.asarray(d['decoding']['per_subject_balanced'], float)
     return alignment, reconstruction, category
 
 
-def load_stats():
-    s = json.load(open(os.path.join(DATA, 'figure_stats.json')))
+def load_stats(data_dir=DATA):
+    s = json.load(open(os.path.join(data_dir, 'figure_stats.json')))
     silh_bar = {m: (s['silhouette_bars'][m]['point'],
                     (s['silhouette_bars'][m]['ci'][1] - s['silhouette_bars'][m]['ci'][0]) / 2.0)
                 for m in METHODS}
@@ -329,11 +343,16 @@ def create_figure(umap_data, alignment, reconstruction, category, silh_bar, sig_
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--results', default=DEFAULT_RESULTS, help='dir with alignment_eval_{method}_32d_not_all8_streams.pkl')
+    ap.add_argument('--data_dir', default=DATA,
+                    help='dir with encoder_data_2d_{VAE,srm,procrustes}.pkl (Panel A) and figure_stats.json '
+                         '(default: visualisation/data)')
     ap.add_argument('--out', default=os.path.join(HERE, 'figure_abc.eps'))
     a = ap.parse_args()
-    umap_data = load_panel_A()
+    print('results dir:', os.path.abspath(a.results))
+    print('data dir   :', os.path.abspath(a.data_dir))
+    umap_data = load_panel_A(a.data_dir)
     alignment, reconstruction, category = load_panel_BC(a.results)
-    silh_bar, sig_B, sig_C = load_stats()
+    silh_bar, sig_B, sig_C = load_stats(a.data_dir)
     print('comp_corr:', {m: round(float(np.mean(alignment["comp_corr"][(m, "pairwise")])), 4) for m in METHODS})
     print('silhouette:', {m: round(silh_bar[m][0], 4) for m in METHODS})
     create_figure(umap_data, alignment, reconstruction, category, silh_bar, sig_B, sig_C, a.out)

@@ -43,7 +43,7 @@ def save_alignment_metrics(
     
     print(f" Saved alignment metrics to: {out_path / f'alignment_metrics_{stamp}{subset_str}.pkl'}")
     
-    # ← FIX: Use "is not None" instead of implicit truthiness
+    # Use "is not None" instead of implicit truthiness
     if comp_corr_per_component is not None:
         print(f"   Comp corr: mean={comp_corr:.4f}, per-component={len(comp_corr_per_component)} values")
     else:
@@ -51,7 +51,7 @@ def save_alignment_metrics(
     
     print(f"   RSA Euclidean: {rsa_euclidean:.4f}, Pearson: {rsa_pearson:.4f}")
     
-    # ← FIX: Use "is not None" here too
+    # Use "is not None" here too
     if rsa_matrix is not None:
         print(f"   RSA matrix shape: {rsa_matrix.shape}")
     else:

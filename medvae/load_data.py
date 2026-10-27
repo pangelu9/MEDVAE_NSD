@@ -8,7 +8,7 @@ import sys as _sys
 _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in _sys.path:
     _sys.path.insert(0, _REPO_ROOT)
-from ccn_config import NSD_DIR, NSD_DATA_DIR, NSD_CLASSIFICATION_DIR, LABELS_FILE, LABELS_ALL_FILE, LABELS_ORIGINAL_FILE, LABELS_MINDEYE_CLIP_FILE, LABELS_PER_SUBJECT_TEMPLATE, ANN_FEATURES_FILE, ACTIVATIONS_ALL_FILE, ACTIVATIONS_ORIGINAL_FILE
+from ccn_config import NSD_DIR, NSD_DATA_DIR, NSD_CLASSIFICATION_DIR, LABELS_FILE, LABELS_PATH, LABELS_ALL_FILE, LABELS_ORIGINAL_FILE, LABELS_MINDEYE_CLIP_FILE, LABELS_PER_SUBJECT_TEMPLATE, ANN_FEATURES_FILE, ACTIVATIONS_ALL_FILE, ACTIVATIONS_ORIGINAL_FILE
 
 
 
@@ -31,6 +31,7 @@ def load_fmri_data(file_paths, args=None):
     for file_path in file_paths:
         # Check file extension
         if file_path.endswith('.nii') or file_path.endswith('.nii.gz'):
+            import nibabel as nib  # only needed for NIfTI inputs
             img = nib.load(file_path)
             data = img.get_fdata()
             # Reshape to samples × voxels if needed
@@ -94,7 +95,7 @@ def load_activations(args, train_loader_non_shuffled=False, filename=None):
 
 def load_and_concat_labels():
     """
-    Load and concatenate labels from all subjects in the same order as load_and_concat_fmri_files().
+    Load the per-subject label files (subjects 01..08, in that order) and concatenate them.
     Returns the concatenated labels array.
     """
     labels_arrays = []
@@ -136,7 +137,6 @@ def load_labels(args, train_loader_non_shuffled=False, filename=None):
     if filename is None:
         if args.brain_to_brain and args.all_subjects and not train_loader_non_shuffled:
             print("brain to brain ALL SUBJECTS")
-            ## TODO correct how we load the data, has become very convoluted. :) 
             labels = load_and_concat_labels()
             return labels
         
@@ -154,7 +154,12 @@ def load_labels(args, train_loader_non_shuffled=False, filename=None):
         if train_loader_non_shuffled:
             filename = LABELS_ORIGINAL_FILE
 
-    dir = os.path.join(NSD_DIR, filename)
+    # The main labels file sits in nsd/data/ with the fMRI and ANN files (ccn_config.LABELS_PATH,
+    # also read by the evaluator); the other label files are relative to nsd/.
+    if filename == LABELS_FILE:
+        dir = LABELS_PATH
+    else:
+        dir = os.path.join(NSD_DIR, filename)
     print("loading data from", dir)
 
     labels = np.load(dir)  # model 1 

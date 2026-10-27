@@ -1,7 +1,8 @@
 #!/bin/bash
-# Common environment setup for MEDVAE SLURM jobs (Oxford BMRC cluster).
-# Sourced by the train/eval/fit scripts. Edit CONDA_ROOT / CONDA_ENV / the data
-# root for your site.
+# Common environment setup for the MED-VAE job scripts (train/eval/fit), which
+# source it. Python comes from a conda env if CONDA_ROOT is set (CONDA_ENV, default
+# medvae, is activated); otherwise the python3 already on PATH is used, e.g. an
+# activated venv (sbatch passes the submitting environment to the job by default).
 set -euo pipefail
 
 # Local, uncommitted site overrides (gitignored): create scripts/_env.local.sh
@@ -10,25 +11,27 @@ set -euo pipefail
 _LOCAL_ENV="$(dirname "${BASH_SOURCE[0]}")/_env.local.sh"
 if [ -f "${_LOCAL_ENV}" ]; then source "${_LOCAL_ENV}"; fi
 
-CONDA_ROOT="${CONDA_ROOT:-/path/to/miniconda3}"   # <-- edit for your site (or export CONDA_ROOT)
-CONDA_ENV="${CONDA_ENV:-medvae}"   # the env created from environment.yml (needs working UMAP)
+CONDA_ROOT="${CONDA_ROOT:-}"   # e.g. /path/to/miniconda3; empty = no conda
+if [ -n "${CONDA_ROOT}" ]; then
+    module purge || true
+    export PATH="${CONDA_ROOT}/bin:${PATH}"
+    source "${CONDA_ROOT}/etc/profile.d/conda.sh"
+    eval "$("${CONDA_ROOT}/bin/conda" shell.bash hook)"
+    conda activate "${CONDA_ENV:-medvae}"   # the env created from environment.yml (needs working UMAP)
+fi
 
-module purge || true
-export PATH="${CONDA_ROOT}/bin:$PATH"
-source "${CONDA_ROOT}/etc/profile.d/conda.sh"
-eval "$(${CONDA_ROOT}/bin/conda shell.bash hook)"
-conda activate "${CONDA_ENV}"
-
-# Where the data (nsd/, nsd_classification/) lives. Override by exporting
-# CCN_DATA_ROOT before sbatch, or edit the default here.
-export CCN_DATA_ROOT="${CCN_DATA_ROOT:-/path/to/data}"
-
-# Repo root = parent of this scripts/ dir (honor a pre-set REPO_ROOT, since under
-# sbatch BASH_SOURCE points at the spool copy, not scripts/).
-REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+# Repo root: set by the job scripts, else the parent of this scripts/ dir (made absolute).
+REPO_ROOT="$(cd "${REPO_ROOT:-$(dirname "${BASH_SOURCE[0]}")/..}" && pwd)"
 export REPO_ROOT
+
+# Where the data lives (nsd/data/ with the files built by data_preparation/). Override
+# by exporting CCN_DATA_ROOT before sbatch, or edit the default here.
+export CCN_DATA_ROOT="${CCN_DATA_ROOT:-/path/to/data}"
 # Write checkpoints into the repo's medvae/results by default (override with CCN_RESULTS_DIR).
 export CCN_RESULTS_DIR="${CCN_RESULTS_DIR:-${REPO_ROOT}/medvae/results}"
+# Relative paths are taken from the repository root (the jobs run python in its subdirectories).
+case "${CCN_DATA_ROOT}" in /*) ;; *) CCN_DATA_ROOT="${REPO_ROOT}/${CCN_DATA_ROOT}" ;; esac
+case "${CCN_RESULTS_DIR}" in /*) ;; *) CCN_RESULTS_DIR="${REPO_ROOT}/${CCN_RESULTS_DIR}" ;; esac
 mkdir -p "${CCN_RESULTS_DIR}"
 
 echo "Repo:        ${REPO_ROOT}"

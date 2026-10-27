@@ -1,15 +1,15 @@
 """Shared cross-subject retrieval evaluation.
 
-One implementation used by BOTH the MED-VAE eval
-(`evaluate_vae.py`) and the SRM/Procrustes baseline
-(`baseline_retrieval.py`), so the two are measured the same way.
+One implementation used for MED-VAE, SRM and Procrustes alike
+(`evaluate_methods.py`, via `evaluation_pipeline.compute_cross_subject_retrieval`),
+so all methods are measured the same way.
 
 Protocol — fixed gallery size (default 128) so retrieval difficulty is
 comparable regardless of how many shared images a split happens to have:
 
-  * n_total <= gallery_size  (e.g. the 128-image pairwise/exclusive split):
+  * n_total <= gallery_size  (e.g. the 128-image not_all8 test set):
         take ALL images, a single deterministic pass (n_reps forced to 1).
-  * n_total >  gallery_size  (e.g. the 872-image all-common split):
+  * n_total >  gallery_size  (e.g. the 872 images all eight subjects saw):
         subsample `gallery_size` images per repetition, `n_reps` repetitions,
         and average — so the gallery is the same size (128) as the small split.
 

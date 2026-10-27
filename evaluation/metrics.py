@@ -76,7 +76,7 @@ def test_multilabel_decoding_balanced(aligned_data, labels, method_name,
     else:
         print("Labels is already a list of np arrays, one for each subject")
     
-    # Metrics helper - FIXED VERSION
+    # Metrics helper
     def _metrics(y_true, y_pred):
         """Compute exact match and per-label averaged balanced accuracy."""
         exact = np.mean(np.all(y_pred == y_true, axis=1))
@@ -398,7 +398,7 @@ def evaluate_reconstruction_quality(aligned_data, W_list, original_data, method_
     subject_correlations = []   # voxel-wise mean per subject
     subject_r2_scores = []
     subject_global_corr = []
-    per_voxel_correlations = []  # NEW: Store full per-voxel correlation arrays
+    per_voxel_correlations = []  # Store full per-voxel correlation arrays
 
     for i in range(n_subjects):
         X_orig = original_data[i]                       # (n_samples, n_voxels)
@@ -415,7 +415,7 @@ def evaluate_reconstruction_quality(aligned_data, W_list, original_data, method_
         subject_correlations.append(m['voxel_correlation_mean'])
         subject_r2_scores.append(m['r2'])
         subject_global_corr.append(global_corr)
-        per_voxel_correlations.append(m['voxel_correlation_list'])  # NEW: Save full list
+        per_voxel_correlations.append(m['voxel_correlation_list'])  # Save full list
 
     avg_corr = np.mean(subject_correlations)
     avg_r2 = np.mean(subject_r2_scores)
@@ -429,7 +429,7 @@ def evaluate_reconstruction_quality(aligned_data, W_list, original_data, method_
     save_subject_metrics(subject_correlations,
                          subject_r2_scores,
                          subject_global_corr,
-                         per_voxel_correlations,  # NEW parameter
+                         per_voxel_correlations,
                          tag=method_name,
                          out_dir=output_dir) 
 
@@ -438,7 +438,7 @@ def evaluate_reconstruction_quality(aligned_data, W_list, original_data, method_
         'mean_r2': avg_r2,
         'per_subject_correlation': subject_correlations,
         'per_subject_r2': subject_r2_scores,
-        'per_voxel_correlations': per_voxel_correlations,  # NEW: Include in return
+        'per_voxel_correlations': per_voxel_correlations,
     }
 
 
@@ -448,7 +448,8 @@ def _reduce_if_needed(x, n=10, random_state=42, reduction="umap"):
     """UMAP → PCA fallback down to ≤ n components."""
     if reduction == "umap":
         if UMAP is None:
-            print("  Warning: UMAP unavailable (numba/numpy conflict), falling back to PCA")
+            print("  WARNING: umap-learn unavailable (not installed, or a numba/numpy conflict): "
+                  "silhouette computed in PCA space; values will not match the paper")
             return PCA(n_components=min(n, x.shape[1]), random_state=random_state).fit_transform(x)
         return UMAP(n_components=n, random_state=random_state).fit_transform(x)
     else:
@@ -544,7 +545,7 @@ def save_prediction_matrix(prediction_matrix: np.ndarray,
 def save_subject_metrics(voxel_corr: List[float],
                          r2_scores: List[float],
                          global_corr: List[float],
-                         per_voxel_corr: List[List[float]],  # NEW parameter
+                         per_voxel_corr: List[List[float]],
                          tag: Optional[str] = None,
                          out_dir: str = "results/other") -> None:
     """
@@ -573,7 +574,7 @@ def save_subject_metrics(voxel_corr: List[float],
     with open(out_path / f"global_corr_{stamp}.pkl", "wb") as f:
         pickle.dump(global_corr, f)
     
-    # NEW: Save per-voxel correlations
+    # Save per-voxel correlations
     with open(out_path / f"per_voxel_corr_{stamp}.pkl", "wb") as f:
         pickle.dump(per_voxel_corr, f)
     
@@ -622,11 +623,11 @@ def save_silhouette_scores(silh_score: float,
     print(f" Saved silhouette scores to: {out_path} (tag='{stamp}')")
 
 
-# ---------- reusable helpers (put these in utils/metrics.py if you want) ----------
+# ---------- reusable helpers ----------
 def compute_fmri_recon_metrics(orig: np.ndarray,
                                recon: np.ndarray,
                                voxel_thresh: float = 0.1) -> Dict[str, Any]:
-    """Compute all metrics exactly like FUNCTION 1 did."""
+    """Reconstruction metrics: sample-wise and voxel-wise Pearson correlations, MSE and overall R²."""
     if orig.shape != recon.shape:
         raise ValueError("Shape mismatch")
     n_s, n_v = orig.shape
@@ -786,13 +787,11 @@ def extract_pairwise_common_samples(data_loader, n_subjects=8, min_subjects=2):
 
 
 # ----------------------------------------------------------------------------
-# Latent-space silhouette helpers (moved here from multiencoder_latent_hybrid_new.py;
-# this module was their only consumer). Used by calculate_silhouette_scores above.
+# Latent-space silhouette helpers (used by calculate_silhouette_scores above).
 # ----------------------------------------------------------------------------
 def evaluate_latent_space_hybrid(latent_vectors, labels_matrix):
     """
     Evaluate latent space quality using multiple metrics.
-    Adapted from multiencoder_latent.py for hybrid model.
     
     Parameters:
     latent_vectors : array-like of shape (n_samples, n_latent_dims)
@@ -814,7 +813,6 @@ def evaluate_latent_space_hybrid(latent_vectors, labels_matrix):
 def calculate_multilabel_silhouette_hybrid(latent_vectors, labels_matrix):
     """
     Calculate modified silhouette score for multi-label data with optimized performance.
-    Adapted from multiencoder_latent.py for hybrid model.
     
     Parameters:
     latent_vectors : array-like of shape (n_samples, n_latent_dims)
@@ -928,7 +926,7 @@ def calculate_multilabel_silhouette_hybrid(latent_vectors, labels_matrix):
 
 
 # =============================================================================
-# RSA helpers (folded in from the former remove_ann_latent.py)
+# Cross-subject alignment metrics (component correlation + RSA)
 # =============================================================================
 def cross_subj_metrics(latents_clean, valid_idx_list, method,
                        subject_labels=None, novel_subject=None, save=True):

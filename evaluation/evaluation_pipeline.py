@@ -71,7 +71,7 @@ def compute_alignment_metrics(latent_space_list, subject_labels, novel_subject=N
     # Component correlation as a subject x subject matrix: mean per-component
     # Pearson r between subjects' latents. Symmetric (pearsonr(a,b)==pearsonr(b,a));
     # this is a CORRELATION, not a prediction -- see fmri_prediction_matrix
-    # (evaluate_vae.py) for the actual decoded-fMRI cross-prediction.
+    # (evaluate_methods.py) for the actual decoded-fMRI cross-prediction.
     pairs = _novel_pairs(subject_labels, novel_subject)
     comp_corr_matrix = np.zeros((n_subj, n_subj))
     for i in range(n_subj):
@@ -235,13 +235,13 @@ def comprehensive_evaluation(aligned_data, W_list, original_data, labels, method
         
         # Extract all the data we need
         comp_corr_mean = metrics['avg_comp_corr']
-        comp_corr_per_comp = metrics.get('per_component_corr', None)  # ← NEW
+        comp_corr_per_comp = metrics.get('per_component_corr', None)
         
         rsa_pearson_mean = metrics.get('avg_rsa_pearson', metrics['avg_rsa'])
         rsa_euclidean_mean = metrics.get('avg_rsa_euclidean', metrics['avg_rsa'])
         
-        rsa_matrix_pearson = metrics.get('rsa_matrix_pearson', None)  # ← NEW
-        rsa_matrix_euclidean = metrics.get('rsa_matrix_euclidean', None)  # ← NEW
+        rsa_matrix_pearson = metrics.get('rsa_matrix_pearson', None)
+        rsa_matrix_euclidean = metrics.get('rsa_matrix_euclidean', None)
         
         print(f"  Component-wise correlation: {comp_corr_mean:.4f}")
         print(f"  RSA Pearson: {rsa_pearson_mean:.4f}")
@@ -251,8 +251,8 @@ def comprehensive_evaluation(aligned_data, W_list, original_data, labels, method
         comp_corr=comp_corr_mean,
         rsa_euclidean=rsa_euclidean_mean,
         rsa_pearson=rsa_pearson_mean,
-        comp_corr_per_component=comp_corr_per_comp,  # ← PASS THIS
-        rsa_matrix=rsa_matrix_pearson,  # ← PASS THIS (default to Pearson)
+        comp_corr_per_component=comp_corr_per_comp,
+        rsa_matrix=rsa_matrix_pearson,  # default to Pearson
         tag=method,
         out_dir=output_dir,
         rsa_pearson_centered=metrics.get('avg_rsa_pearson_centered', None),
@@ -276,8 +276,9 @@ def comprehensive_evaluation(aligned_data, W_list, original_data, labels, method
         results.update(recon_results)
     
     # 3. Cross-subject prediction matrix — always disabled here (compute_cross_pred=False).
-    # The reported cross-subject prediction is produced by prediction.run_pairwise_analysis_pipeline
-    # (training-mean centering), used by evaluation/evaluate_methods.py and baselines/fit_baselines.py.
+    # The reported cross-subject prediction (Fig. 3) is computed by evaluation/evaluate_methods.py
+    # (compute_cross_subject_fmri_prediction); baselines/fit_baselines.py uses
+    # prediction.run_pairwise_analysis_pipeline (training-mean centering).
     if compute_cross_pred:
         raise NotImplementedError(
             "compute_cross_pred is not supported in comprehensive_evaluation; "

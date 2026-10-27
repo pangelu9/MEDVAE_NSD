@@ -4,8 +4,8 @@ Input/Output utilities for saving and loading alignment models (SRM/Procrustes).
 This module provides functions to save trained alignment models with all necessary
 components (transformation matrices, PCA models, training means) for later use.
 
-Vendored verbatim from ../baselines_old/model_io.py so baselines/ is fully
-self-contained for the paper release (loaded locally by the fit_* drivers).
+Loaded by file path by the fit_* drivers, so baselines/ is self-contained. The pickles
+are read by evaluation/evaluate_methods.py and visualisation/visualise_latent.py.
 """
 
 import pickle

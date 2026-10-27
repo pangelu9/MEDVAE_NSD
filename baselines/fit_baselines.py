@@ -1,15 +1,15 @@
 """
-Cluster driver for the improved baselines.
+Driver for the SRM / Procrustes baselines (see baselines/README.md).
 
-Mirrors the data flow of ``baselines/fit_baselines.py`` + ``baselines/alignment.py``
-but uses the corrected components in this folder and the *existing* shared
-evaluation (so the numbers are directly comparable to the MED-VAE eval).
+Loads the data with the MED-VAE data loader, fits the per-subject PCA and the alignment
+with the components in this folder, saves the model, and evaluates it with the shared
+evaluation code in evaluation/ (so the numbers are directly comparable to the MED-VAE eval).
 
-PROTOCOL (confirmed)
---------------------
+PROTOCOL
+--------
   * FIT the alignment on the 872 images seen by ALL 8 subjects.
   * TEST generalization on the 128 images shared by subjects 1,2,5,7 (seen by <=7
-    subjects, hence DISJOINT from the 872 -> no fit/test leakage).
+    subjects, hence DISJOINT from the 872 -> the alignment never sees them).
   * ALL generalization metrics -- alignment, retrieval, decoding, silhouette
     (latent-space, via the shared ``evaluate_aligned_latents``) AND cross-subject
     prediction + reconstruction (voxel-space, via ``run_pairwise_analysis_pipeline``)
@@ -21,23 +21,23 @@ Methods
 -------
   --method srm           : DetSRM, n_pca (large, e.g. 5000) -> n_components (32)
   --method procrustes_a  : PCA -> n_components, then GPA rotate   (paper's Procrustes)
-  --method procrustes_b  : PCA -> n_pca (large), GPA rotate, reduce consensus -> n_components
+  --method procrustes_b  : PCA -> n_pca_procb (200), GPA rotate, reduce consensus -> n_components
 
-Fixes vs the original: Procrustes actually reduces to k; no UMAP coupling; SRM can
-run at the paper's n_pca=5000; and decoding/silhouette generalization is on the 128
-(the original computed them on the full per-subject test set -- a different image set
-from the 128, inconsistent with the VAE).
+Compared with an earlier version of these baselines: Procrustes actually reduces to k;
+no UMAP coupling; SRM can run at the paper's n_pca=5000; and decoding/silhouette
+generalization is on the 128 (the earlier version computed them on the full per-subject
+test set -- a different image set from the 128, inconsistent with the VAE).
 
-Example (SLURM)
----------------
+Example
+-------
   cd baselines
-  sbatch -A gpu_costa.prj -p gpu_rtx8000_48gb,gpu_a100_80gb --gres gpu:1 \
-      --qos gpu_bmrc_4hr --cpus-per-gpu 4 --mem-per-gpu 160G --time 3:55:00 \
-      -o logs/fit_%j.out -e logs/fit_%j.out --export=ALL,REPO_ROOT=/path/to/medvae_release \
-      --wrap='source $REPO_ROOT/scripts/_env.sh; cd $REPO_ROOT/baselines; \
-              python3 -u fit_baselines.py --method srm --n_pca 5000 --n_components 32 \
-                  --filename ann_features.npy \
-                  --model_dir fitted_models --output_dir results_improved'
+  python3 -u fit_baselines.py --method srm --n_pca 5000 --n_components 32 \
+      --model_dir fitted_models
+  python3 -u fit_baselines.py --method procrustes_a --n_pca 32 --n_components 32 \
+      --model_dir fitted_models
+These are steps 1-2 of scripts/fit_baselines.sh, which then runs fit_srm.py and
+fit_proca.py. CPU only; ~160 GiB of RAM (the loader holds the fMRI of all eight
+subjects and the ANN features).
 """
 
 from __future__ import annotations
@@ -49,8 +49,7 @@ import importlib.util
 
 import numpy as np
 
-# --- load THIS folder's modules unambiguously (baselines/ is also on sys.path and
-#     has same-named srm.py / procrustes.py) -------------------------------------
+# --- load THIS folder's modules by file path (unambiguous whatever is on sys.path) ---
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -65,7 +64,7 @@ srm_mod = _load_local("srm")
 proc_mod = _load_local("procrustes")
 reduction = _load_local("reduction")
 recon_mod = _load_local("recon")
-model_io = _load_local("model_io")  # vendored copy -> folder is self-contained
+model_io = _load_local("model_io")  # loaded by file path from baselines/, not via sys.path
 
 # --- repo paths + shared eval ---------------------------------------------------
 _REPO_ROOT = os.path.dirname(_HERE)
@@ -74,7 +73,7 @@ if _REPO_ROOT not in sys.path:
 from ccn_config import setup_paths, NSD_DIR, ANN_FEATURES_FILE  # noqa: E402
 setup_paths()
 
-_dp = _load_local("data_processing")  # vendored copy -> folder is self-contained
+_dp = _load_local("data_processing")  # loaded by file path from baselines/, not via sys.path
 extract_full_subject_data = _dp.extract_full_subject_data
 extract_common_fmri_samples = _dp.extract_common_fmri_samples
 extract_pairwise_common_samples = _dp.extract_pairwise_common_samples
@@ -94,10 +93,10 @@ HERO_LABELS = [1, 2, 5, 7]
 
 def _align(method, reduced_common, n_components, seed, srm_init="grand_mean"):
     if method == "srm":
-        # init has no effect on alignment quality (recon_error/RSA identical across
+        # init has no effect on alignment quality (recon_error/RSA (nearly) identical across
         # inits; only the rotation-sensitive comp-corr moves). grand_mean is the
-        # deterministic, paper-reproducing default; the no-PCA path passes 'random'
-        # (grand_mean needs equal per-subject dims).
+        # deterministic default (the paper's SRM is fit_srm.py's random-init refit);
+        # the no-PCA path passes 'random' (grand_mean needs equal per-subject dims).
         aligned, W, _m, info = srm_mod.fit_detsrm(
             reduced_common, n_components=n_components, seed=seed, init=srm_init, verbose=True)
     elif method == "procrustes_a":
@@ -131,7 +130,7 @@ def run_one(method, reduced_common, common_data_list, common_labels, pca_models,
             srm_init="grand_mean", save_model=True, tag=None, load_model_path=None):
     tag = tag or f"{method}_{n_components}d"
     print("\n" + "=" * 80)
-    print(f"{method.upper()} (improved)  tag={tag}")
+    print(f"{method.upper()}  tag={tag}")
     print("=" * 80)
 
     if load_model_path:
@@ -186,7 +185,7 @@ def run_one(method, reduced_common, common_data_list, common_labels, pca_models,
         exclude_subjects=[2, 3, 5, 7], output_dir=output_dir)
 
     # 2b. latent-space alignment + retrieval + DECODING + SILHOUETTE on the SAME 128
-    #     (this is what the original code computed on the full test set instead).
+    #     (an earlier version computed these on the full test set instead).
     _ids, data128, labels128 = _extract_hero_common(pairwise_dict, subject_lists)
     aligned128, W_hero, tmean_hero, pca_hero, vox_hero = [], [], [], [], []
     for s in HERO_IDX:
@@ -210,18 +209,20 @@ def run_one(method, reduced_common, common_data_list, common_labels, pca_models,
 
 
 def main():
-    p = argparse.ArgumentParser(description="Improved SRM / Procrustes baselines")
+    p = argparse.ArgumentParser(description="Fit and evaluate the SRM / Procrustes baselines")
     p.add_argument('--dataset', type=str, default='streams')
     p.add_argument('--batch_size', type=int, default=64)
     p.add_argument('--test_size', type=float, default=0.1)
     p.add_argument('--filename', type=str, default=ANN_FEATURES_FILE,
                    help='ANN features file (defaults to ccn_config.ANN_FEATURES_FILE)')
+    # --data_dir, --output_dim, --nn_output_dim and --input_dim are not read: the loader
+    # takes the data directory from ccn_config (CCN_DATA_ROOT) and the widths from the data.
     p.add_argument('--data_dir', type=str, default=NSD_DIR + os.sep)
     p.add_argument('--output_dim', type=int, nargs='+',
                    default=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733])
-    p.add_argument('--nn_output_dim', type=int, default=51060)
+    p.add_argument('--nn_output_dim', type=int, default=51048)
     p.add_argument('--input_dim', type=int, nargs='+',
-                   default=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733, 51060])
+                   default=[20732, 20735, 20736, 20733, 20733, 20734, 20726, 20733, 51048])
     p.add_argument('--n_pca', type=int, default=5000,
                    help='PCA comps for SRM before alignment (large, e.g. 5000).')
     p.add_argument('--n_pca_procb', type=int, default=200,
@@ -238,7 +239,7 @@ def main():
                         '(full-voxel GPA is intractable). The E-step SVD is thin (voxels x k) '
                         'so this is tractable; uses random init (grand-mean init needs equal '
                         'per-subject dims) and an identity reducer so the eval round-trip is a no-op.')
-    # data-loading compat flags (mirror baselines/fit_baselines.py)
+    # data-loading flags of the MED-VAE loader (medvae/dataset.py, load_data.py)
     p.add_argument('--noise_level', type=float, default=0.0)
     p.add_argument('--max_memory_gb', type=float, default=150.0)
     p.add_argument('--remove_overlaps', action='store_true', default=False)

@@ -249,8 +249,8 @@ def run_pairwise_analysis_pipeline(
             comp_corr=comp_corr,
             rsa_euclidean=metrics.get('avg_rsa_euclidean', rsa),
             rsa_pearson=rsa,
-            comp_corr_per_component=comp_corr_per_comp,  # ← ADD
-            rsa_matrix=rsa_matrix,  # ← ADD
+            comp_corr_per_component=comp_corr_per_comp,
+            rsa_matrix=rsa_matrix,
             tag=method_name,
             out_dir=output_dir
         )
@@ -354,7 +354,7 @@ def evaluate_cross_subject_prediction(
     W_list: List[np.ndarray],
     original_data: List[np.ndarray],
     method_name: str,
-    training_means: List[np.ndarray],  # ← CRITICAL NEW PARAMETER
+    training_means: List[np.ndarray],
     pca_models: Optional[List] = None,
     data_before_pca: Optional[List[np.ndarray]] = None
 ) -> Dict[str, Any]:

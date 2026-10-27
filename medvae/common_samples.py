@@ -1,6 +1,6 @@
-"""Common-sample selection used on the real --train path (find_common_samples is called
-unconditionally in main.py). The exploratory cross-subject alignment suite
-that used to live here was removed for the published repo."""
+"""find_common_samples: fMRI, ANN activations and labels of the images all 8 subjects saw
+(rows non-NaN for every subject). main.py stores the result on args, so it is saved in the
+checkpoint config; training does not use it."""
 
 import numpy as np
 from load_data import load_activations, load_labels, load_fmri_data
@@ -65,7 +65,7 @@ def extract_common_samples(fmri_data_list, nn_activations, labels):
     fmri_common  : list[np.ndarray]   # one array per subject
     nn_common    : np.ndarray
     labels_common: np.ndarray
-    idx_common   : np.ndarray         # the indices (same that extract_latents_and_all_recons would return)
+    idx_common   : np.ndarray         # row indices (70502-image order) valid (non-NaN) for every subject
     """
     idx_common = common_samples_mask(fmri_data_list)
 

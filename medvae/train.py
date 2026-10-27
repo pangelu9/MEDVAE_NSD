@@ -526,7 +526,7 @@ def test_hybrid_vae(model, test_loader, device, epoch, args, kl_beta, disabled_e
     print('====> Test set alignment loss: {:.4f}'.format(align_loss))
     
     # Silhouette / cross-subject alignment metrics are computed post-hoc by the
-    # evaluation entry (evaluate_vae.py), not during training.
+    # evaluation entry (evaluation/evaluate_methods.py), not during training.
     fmri_combined_silhouette = 0
     full_combined_silhouette = 0
     avg_encoder_silhouette = 0

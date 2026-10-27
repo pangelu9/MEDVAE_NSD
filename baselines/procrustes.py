@@ -31,17 +31,17 @@ Variant B therefore converges toward SRM -- that is expected, not a bug.
 
 THE BUG THIS REPLACES
 ---------------------
-The original ``baselines/procrustes.py`` computed ``aligned_trim = x[:, :n_cca]``
-and then *returned the full-dim aligned data and threw the trim away* (its
-docstring even claimed 4 return values; it returned 3).  That silently forced
-``n_pca == n_components`` for any comparable evaluation -- which is exactly why the
-paper had to run Procrustes at n_pca=32 instead of giving it 5000 like SRM.
+An earlier implementation computed ``aligned_trim = x[:, :n_cca]`` and then
+*returned the full-dim aligned data and threw the trim away* (its docstring even
+claimed 4 return values; it returned 3).  That silently forced
+``n_pca == n_components`` for any comparable evaluation (at n_pca == k, the
+setting of Variant A, the trim is a no-op, so that case was unaffected).
 
 EVAL CONTRACT
 -------------
 Both variants return ``W_list`` with orthonormal columns (n_features, k) and
-``aligned = (X - mu) @ W``, plus the per-subject centering means, matching
-``baselines.alignment.apply_trained_alignment``.
+``aligned = (X - mu) @ W``, plus the per-subject centering means, matching the
+evaluator (``AlignmentTransformer`` in evaluation/evaluate_methods.py).
 """
 
 from __future__ import annotations
@@ -65,10 +65,10 @@ def fit_gpa(data_list, n_iter=200, tol=1e-6, center=True, scaling=False,
                 contract used by the eval; only correlation/RSA/retrieval metrics
                 stay valid.  Default False (keep transforms orthogonal).
     init_seed : if not None, pre-rotate each subject by a random orthogonal matrix
-                (seeded) before GPA -- an init-robustness probe. Standard GPA starts
-                from the data itself (init_seed=None), which is the canonical and
-                deterministic start; this option exists only to confirm GPA converges
-                to the same alignment regardless of starting orientation.
+                (seeded) before GPA. Standard GPA starts from the data itself
+                (init_seed=None); baselines/fit_proca.py uses init_seed=0 to build the
+                paper's Procrustes model (same alignment, another orientation of the
+                shared space).
 
     Returns
     -------
@@ -175,8 +175,8 @@ def align_procrustes(data_list, n_components, reduce_after=False,
 def apply_alignment(data_list_new, W_list, training_means):
     """aligned_i = (X_new_i - training_means[i]) @ W_list[i].
 
-    Same convention as ``baselines.alignment.apply_trained_alignment`` and
-    ``srm.apply_alignment``, so the existing eval/prediction code is unchanged.
+    Same convention as ``srm.apply_alignment`` and the evaluator (``AlignmentTransformer``
+    in evaluation/evaluate_methods.py), so the existing eval/prediction code is unchanged.
     """
     out = []
     for i, X in enumerate(data_list_new):
